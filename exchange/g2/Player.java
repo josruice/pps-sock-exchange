@@ -1,32 +1,11 @@
 package exchange.g2;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Comparator;
+import java.util.*;
 
 import exchange.sim.Offer;
 import exchange.sim.Request;
 import exchange.sim.Sock;
 import exchange.sim.Transaction;
-
-class SockPair {
-    double distance;
-    Sock s1;
-    Sock s2;
-
-    public SockPair(Sock s1, Sock s2) {
-        this.s1 = s1;
-        this.s2 = s2;
-        this.distance = s1.distance(s2);
-    }
-}
-
-class SortByDistanceDesc implements Comparator<SockPair> {
-    public int compare(SockPair a, SockPair b) {
-        return (a.distance > b.distance)? -1 : 1;
-    }
-}
 
 public class Player extends exchange.sim.Player {
     /*
@@ -39,11 +18,11 @@ public class Player extends exchange.sim.Player {
     private int id1, id2, id;
 
     private Sock[] socks;
-    private SockPair[] socksPairs;
-
+    private int numSocks;
     private int currentTurn;
     private int totalTurns;
     private int numPlayers;
+
 
     @Override
     public void init(int id, int n, int p, int t, List<Sock> socks) {
@@ -51,40 +30,39 @@ public class Player extends exchange.sim.Player {
         this.totalTurns = t;
         this.numPlayers = p;
         this.socks = (Sock[]) socks.toArray(new Sock[2 * n]);
-        this.socksPairs = new SockPair[n];
+        this.numSocks = n*2;
 
+        System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
         pairSocksGreedily();
     }
 
-    private void pairSocksGreedily() {
-        for (int i = 0; i < this.socks.length-1; i+=2) {
-            double minDistance = Double.POSITIVE_INFINITY;
-            int minIndex = 0;
-            for (int j = i+1; j < this.socks.length; ++j) {
-                double distance = this.socks[i].distance(this.socks[j]);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    minIndex = j;
-                }
-            }
-
-            // Since we found the sock closest to i-th sock, let's put it in the i+1-th position so that it is not
-            // considered again.
-            Sock tmp = this.socks[i+1];
-            this.socks[i+1] = this.socks[minIndex];
-            this.socks[minIndex] = tmp;
-
-            // Build the actual pair.
-            this.socksPairs[(int) i/2] = new SockPair(this.socks[i], this.socks[i+1]);
+    private double getEmbarrasment() {
+        double result = 0;
+        for (int i = 0; i < this.numSocks; i += 2){
+            result += this.socks[i].distance(this.socks[i+1]);
         }
-        sortPairsPerDistance();
+        return result;
     }
 
-    private void sortPairsPerDistance() {
-        Arrays.sort(this.socksPairs, new SortByDistanceDesc());
-        for (int i = 0; i < this.socks.length-1; i+=2) {
-            this.socks[i] = this.socksPairs[(int) i/2].s1;
-            this.socks[i+1] = this.socksPairs[(int) i/2].s2;
+    private void pairSocksGreedily() {
+        PriorityQueue<SockPair> queue = new PriorityQueue<SockPair>();
+        for (int i = 0; i < this.socks.length ; i++){
+            for (int j = 0; j < i; j++){
+                queue.add(new SockPair(this.socks[i],this.socks[j]));
+            }
+        }
+
+        HashSet<Sock> matched = new HashSet<Sock>();
+        while(matched.size() < this.numSocks ){
+            SockPair pair = queue.poll();
+            if(pair != null) {
+                if(!matched.contains(pair.s1) && !matched.contains(pair.s2)){
+                    matched.add(pair.s1);
+                    this.socks[matched.size()-1] = pair.s1;
+                    matched.add(pair.s2);
+                    this.socks[matched.size()-1] = pair.s2;
+                }
+            }
         }
     }
 
