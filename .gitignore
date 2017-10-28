@@ -1,5 +1,11 @@
+# Mac-specific
+.DS_Store
+
 # Compiled class file
 *.class
+
+# Binaries
+bin/
 
 # Log file
 *.log
