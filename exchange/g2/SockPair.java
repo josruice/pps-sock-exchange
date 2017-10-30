@@ -7,6 +7,7 @@ public class SockPair implements Comparable<SockPair> {
     double distance;
     Sock s1;
     Sock s2;
+    double totalCentroidDistance = 0;
 
     public SockPair(Sock s1, Sock s2) {
         this.s1 = s1;

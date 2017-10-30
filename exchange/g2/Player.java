@@ -9,7 +9,7 @@ import exchange.sim.Transaction;
 
 public class Player extends exchange.sim.Player {
 
-    private final int K = 2;
+    private final int K = 4;
 
     /*
         Inherited from exchange.sim.Player:
@@ -28,17 +28,21 @@ public class Player extends exchange.sim.Player {
     private int numPlayers;
     private int numSocks;
 
-
     // Declare also the centroids so that they can be reused between iterations.
     private AbstractEKmeans eKmeans;
     private Sock[] centroids;
     private SockDistanceFunction sockDistanceFunction;
     private SockCenterFunction sockCenterFunction;
 
+    private int[][][] marketValue;
+    private PriorityQueue<SockPair> rankedPairs;
+    private List<Offer> lastOffers = null;
+
     @Override
     public void init(int id, int n, int p, int t, List<Sock> socks) {
         this.id = id;
         this.totalTurns = t;
+        this.currentTurn = t;
         this.numPlayers = p;
         this.numSocks = n*2;
         this.socks = (Sock[]) socks.toArray(new Sock[2 * n]);
@@ -54,6 +58,14 @@ public class Player extends exchange.sim.Player {
         // Initialize the functions for distance and centroid centering.
         sockDistanceFunction = new SockDistanceFunction();
         sockCenterFunction = new SockCenterFunction();
+
+        this.marketValue = new int[8][8][8]; //Splitting into 8 equal sized rgb segments
+        Comparator<SockPair> compareCentroidDistance = new Comparator<SockPair>() {
+            public int compare(SockPair sp1, SockPair sp2) {
+                return sp1.totalCentroidDistance - sp2.totalCentroidDistance > 0 ? 1 : -1;
+            }
+        };
+        this.rankedPairs = new PriorityQueue<SockPair>(10, compareCentroidDistance);
 
         System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
         pairSocksGreedily();
@@ -71,21 +83,22 @@ public class Player extends exchange.sim.Player {
         int secondMaxDistanceId = -1;
 
         int[] assignments = eKmeans.assignments;
-        Sock assignedCentroid;
-        for (int j = 0; j < this.socks.length; ++j) {
-            assignedCentroid = centroids[assignments[j]];
-            distance = assignedCentroid.distance(this.socks[j]);
-            if (distance > maxDistance) {
-                secondMaxDistance = maxDistance;
-                secondMaxDistanceId = maxDistanceId;
-                maxDistance = distance;
+        Sock assignedCentroidSock1=null, assignedCentroidSock2=null;
+        for (int j = 0; j < this.socks.length; j+=2) {
+            assignedCentroidSock1 = centroids[assignments[j]];
+            assignedCentroidSock2 = centroids[assignments[j+1]];
+            double distance1 = assignedCentroidSock1.distance(this.socks[j]);
+            double distance2 = assignedCentroidSock2.distance(this.socks[j+1]);
+            double curDistance = distance1 + distance2;
+            rankedPairs.add(new SockPair(this.socks[j],this.socks[j+1]));
+            if (curDistance > maxDistance) {
+                maxDistance = distance1;
+                secondMaxDistance = distance2;
+                secondMaxDistanceId = j+1;
                 maxDistanceId = j;
-            } else if (distance > secondMaxDistance) {
-                secondMaxDistance = distance;
-                secondMaxDistanceId = j;
             }
         }
-
+        System.out.println(assignedCentroidSock1);
         this.id1 = maxDistanceId;
         this.id1DistanceToCentroid = maxDistance;
         this.id2 = secondMaxDistanceId;
@@ -138,9 +151,38 @@ public class Player extends exchange.sim.Player {
 			lastRequests.get(i)		-		Player i's request last round
 			lastTransactions		-		All completed transactions last round.
 		 */
+        for (Request request : lastRequests) {
+            if(request == null) continue;
+            if(request.getFirstID() >= 0 && request.getFirstRank() >= 0) {
+            Sock first = lastOffers.get(request.getFirstID()).getSock(request.getFirstRank());
+            marketValue[first.R/32][first.G/32][first.B/32] += totalTurns-currentTurn; 
+            }
+            if(request.getSecondID() >= 0 && request.getSecondRank() >= 0) {
+            Sock second = lastOffers.get(request.getSecondID()).getSock(request.getSecondRank());
+            marketValue[second.R/32][second.G/32][second.B/32] += totalTurns-currentTurn;
+            } 
+        }
+        
+        currentTurn--;
         pairSocksGreedily();
         getSocksFarthestFromCentroid();
-        return new Offer(this.socks[id1], this.socks[id2]);
+
+        SockPair maxMarketPair = rankedPairs.poll();
+        int maxMarketValue = marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32] +
+            marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32]; 
+
+        for(int i=0; i<5; i++) {
+            SockPair next = rankedPairs.poll();
+            int nextMarketValue = marketValue[next.s1.R/32][next.s1.G/32][next.s1.B/32] + marketValue[next.s2.R/32][next.s2.G/32][next.s2.B/32]; 
+            if (nextMarketValue > maxMarketValue) {
+                maxMarketPair = next;
+                maxMarketValue = nextMarketValue;
+            } 
+        }
+        id1 = getSocks().indexOf(maxMarketPair.s1);
+        id2 = getSocks().indexOf(maxMarketPair.s2);
+        rankedPairs.clear();
+        return new Offer(maxMarketPair.s1,maxMarketPair.s2);
     }
 
     private double getMinDistanceToAnyCentroid(Sock s) {
@@ -167,6 +209,14 @@ public class Player extends exchange.sim.Player {
 
 			Remark: For Request object, rank ranges between 1 and 2
 		 */
+        for( Offer offer : offers) {
+            Sock first = offer.getFirst();
+            Sock second = offer.getSecond();
+            marketValue[first.R/32][first.G/32][first.B/32] -= totalTurns-currentTurn; 
+            marketValue[second.R/32][second.G/32][second.B/32] -= totalTurns-currentTurn; 
+        }
+        lastOffers = offers;
+
         double minDistance = this.id1DistanceToCentroid;
         int minDistanceOfferId = -1;
         int minDistanceOfferRank = -1;
@@ -216,6 +266,8 @@ public class Player extends exchange.sim.Player {
          */
         int rank;
         Sock newSock;
+        Sock one = socks[id1];
+        Sock two = socks[id2];
         if (transaction.getFirstID() == id) {
             rank = transaction.getFirstRank();
             newSock = transaction.getSecondSock();
