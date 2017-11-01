@@ -1,7 +1,6 @@
 package exchange.g3;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import exchange.sim.*;
@@ -9,7 +8,6 @@ import exchange.sim.*;
 public class Player extends exchange.sim.Player {
     /*
         Inherited from exchange.sim.Player:
-        Random random   -       Random number generator, if you need it
 
         Remark: you have to manually adjust the order of socks, to minimize the total embarrassment
                 the score is calculated based on your returned list of getSocks(). Simulator will pair up socks 0-1, 2-3, 4-5, etc.
@@ -17,12 +15,16 @@ public class Player extends exchange.sim.Player {
     private int id1, id2, id;
     private Sock[] socks;
     private SockCollection socksCollection;
+    private int turn = -1;
+
+    private RoundCollection rounds;
 
     @Override
     public void init(int id, int n, int p, int t, List<Sock> socks) {
         this.id = id;
         this.socks = socks.toArray(new Sock[2 * n]);
         this.socksCollection = new SockCollection(this.socks);
+        this.rounds = new RoundCollection();
     }
 
 
@@ -33,6 +35,10 @@ public class Player extends exchange.sim.Player {
 			lastTransactions		-		All completed transactions last round.
 		 */
 
+        // Tracks the current turn number.
+        this.turn += 1;
+        
+        rounds.putTransactionInfo(lastRequests, lastTransactions);
 
         int[] worstPairIds = this.socksCollection.getWorstPairIds();
         this.id1 = worstPairIds[0];
@@ -53,6 +59,8 @@ public class Player extends exchange.sim.Player {
 
 			Remark: For Request object, rank ranges between 1 and 2
 		 */
+
+		rounds.putOfferInfo(offers);
 
 		List<Integer> availableOffers = new ArrayList<>();
 		for (int i = 0; i < offers.size(); ++ i) {
@@ -110,5 +118,51 @@ public class Player extends exchange.sim.Player {
     @Override
     public List<Sock> getSocks() {
         return socksCollection.getCollection();
+    }
+}
+
+// Maintains information of all the rounds.
+// - Need to implement a KB for gathering info.
+class RoundCollection {
+    private List<Round> roundsInfo;
+    private int turn = -1;
+
+    public RoundCollection() {
+        roundsInfo = new ArrayList<>();
+    }
+
+    public void putOfferInfo(List<Offer> offers) {
+        turn += 1;
+
+        roundsInfo.add(new Round(offers));
+    }
+
+    public void putTransactionInfo(
+            List<Request> requests,
+            List<Transaction> transactions) {
+
+        // For all turn# >= 0 we have request information.
+        if (turn >= 0) {
+            roundsInfo.get(turn).requests = requests;
+            roundsInfo.get(turn).transactions = transactions;
+        }
+    }
+
+    public Round getRoundInfo(int turn) {
+        return roundsInfo.get(turn);
+    }
+}
+
+// Stores offers, requests, and transactions for a round.
+class Round {
+    public List<Offer> offers;
+    public List<Request> requests;
+    public List<Transaction> transactions;
+
+    public Round() {
+    }
+
+    public Round(List<Offer> offers) {
+        this.offers = offers;
     }
 }
