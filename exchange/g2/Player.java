@@ -27,6 +27,7 @@ public class Player extends exchange.sim.Player {
     private int totalTurns;
     private int numPlayers;
     private int numSocks;
+    private boolean shouldRecomputePairing;
 
     private int[][][] marketValue;
     private PriorityQueue<SockPair> rankedPairs;
@@ -46,6 +47,7 @@ public class Player extends exchange.sim.Player {
 
         System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
         pairBlossom();
+        this.shouldRecomputePairing = false;
     }
 
     private double getEmbarrasment() {
@@ -80,6 +82,21 @@ public class Player extends exchange.sim.Player {
         return matrix;
     }
 
+    private double getMaxReductionInPairDistance(Sock s) {
+        double maxDistanceReduction = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < this.socks.length; i+=2) {
+            if (i == id1 || i == id2) continue; // Skip offered pair.
+            double pairDistance = this.socks[i].distance(this.socks[i+1]);
+            double distanceToFirst = this.socks[i].distance(s);
+            double distanceToSecond = this.socks[i+1].distance(s);
+            double distanceReduction = pairDistance - Math.min(distanceToFirst, distanceToSecond);
+            if (distanceReduction > maxDistanceReduction) {
+                maxDistanceReduction = distanceReduction;
+            }
+        }
+        return maxDistanceReduction;
+    }
+
     @Override
     public Offer makeOffer(List<Request> lastRequests, List<Transaction> lastTransactions) {
         /*
@@ -100,23 +117,27 @@ public class Player extends exchange.sim.Player {
         }
 
         currentTurn--;
-        pairBlossom();
+        if (this.shouldRecomputePairing) {
+            pairBlossom();
+            this.shouldRecomputePairing = false;
+        }
 
-        //getting the worst paired socks
+        // Getting the worst paired socks.
         SockPair maxMarketPair = rankedPairs.poll();
-        int maxMarketValue = marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32] +
-            marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32];
+        int maxMarketValue = 2*marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32] +
+            marketValue[maxMarketPair.s2.R/32][maxMarketPair.s2.G/32][maxMarketPair.s2.B/32];
 
         for(int i=0; i<5; i++) {
             SockPair next = rankedPairs.poll();
             int nextMarketValue = marketValue[next.s1.R/32][next.s1.G/32][next.s1.B/32] + marketValue[next.s2.R/32][next.s2.G/32][next.s2.B/32];
-            if (nextMarketValue > maxMarketValue) {
+            if (nextMarketValue > maxMarketValue && next.timesOffered <= maxMarketPair.timesOffered) {
                 maxMarketPair = next;
                 maxMarketValue = nextMarketValue;
             }
         }
         id1 = getSocks().indexOf(maxMarketPair.s1);
         id2 = getSocks().indexOf(maxMarketPair.s2);
+        maxMarketPair.timesOffered++;
         rankedPairs.clear();
 
         return new Offer(maxMarketPair.s1,maxMarketPair.s2);
@@ -142,9 +163,42 @@ public class Player extends exchange.sim.Player {
         }
         lastOffers = offers;
 
-        //write new method here
+        double maxDistanceReduction = getMaxReductionInPairDistance(this.socks[id1]);
+        int maxDistanceReductionOfferId = -1;
+        int maxDistanceReductionOfferRank = -1;
 
-        return new Request(-1,-1,-1,-1);
+        double secondMaxDistanceReduction = getMaxReductionInPairDistance(this.socks[id2]);
+        int secondMaxDistanceReductionOfferId = -1;
+        int secondMaxDistanceReductionOfferRank = -1;
+
+        // Find the offered socks that, when paired with any of our socks, will
+        // maximize the reduction in the pair distance.
+        double distanceReduction;
+        for (int i = 0; i < offers.size(); ++i) {
+            if (i == id) continue; // Skip our own offer.
+            for (int j = 1; j < 3; ++j) {
+                Sock s = offers.get(i).getSock(j);
+                if (s == null) continue;
+
+                distanceReduction = getMaxReductionInPairDistance(s);
+                if (distanceReduction > maxDistanceReduction) {
+                    secondMaxDistanceReduction = maxDistanceReduction;
+                    secondMaxDistanceReductionOfferId = maxDistanceReductionOfferId;
+                    secondMaxDistanceReductionOfferRank = maxDistanceReductionOfferRank;
+
+                    maxDistanceReduction = distanceReduction;
+                    maxDistanceReductionOfferId = i;
+                    maxDistanceReductionOfferRank = j;
+                } else if (distanceReduction > secondMaxDistanceReduction) {
+                    secondMaxDistanceReduction = distanceReduction;
+                    secondMaxDistanceReductionOfferId = i;
+                    secondMaxDistanceReductionOfferRank = j;
+                }
+            }
+        }
+
+        return new Request(maxDistanceReductionOfferId, maxDistanceReductionOfferRank,
+                secondMaxDistanceReductionOfferId, secondMaxDistanceReductionOfferRank);
     }
 
     @Override
@@ -159,6 +213,8 @@ public class Player extends exchange.sim.Player {
 
             Remark: rank ranges between 1 and 2
          */
+        this.shouldRecomputePairing = true;
+
         int rank;
         Sock newSock;
         Sock one = socks[id1];
