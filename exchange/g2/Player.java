@@ -118,27 +118,37 @@ public class Player extends exchange.sim.Player {
 
         currentTurn--;
         if (this.shouldRecomputePairing) {
+            rankedPairs.clear();
             pairBlossom();
             this.shouldRecomputePairing = false;
         }
-
+        
         // Getting the worst paired socks.
+
+        List<SockPair> poppedPair = new ArrayList<>();
         SockPair maxMarketPair = rankedPairs.poll();
+        poppedPair.add(maxMarketPair);
+
         int maxMarketValue = 2*marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32] +
             marketValue[maxMarketPair.s2.R/32][maxMarketPair.s2.G/32][maxMarketPair.s2.B/32];
 
         for(int i=0; i<5; i++) {
             SockPair next = rankedPairs.poll();
+            poppedPair.add(next);
             int nextMarketValue = marketValue[next.s1.R/32][next.s1.G/32][next.s1.B/32] + marketValue[next.s2.R/32][next.s2.G/32][next.s2.B/32];
             if (nextMarketValue > maxMarketValue && next.timesOffered <= maxMarketPair.timesOffered) {
                 maxMarketPair = next;
                 maxMarketValue = nextMarketValue;
             }
         }
+        for(SockPair pair : poppedPair) {
+            rankedPairs.add(pair);
+        }
+
+
         id1 = getSocks().indexOf(maxMarketPair.s1);
         id2 = getSocks().indexOf(maxMarketPair.s2);
         maxMarketPair.timesOffered++;
-        rankedPairs.clear();
 
         return new Offer(maxMarketPair.s1,maxMarketPair.s2);
     }
