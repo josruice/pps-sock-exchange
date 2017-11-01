@@ -165,50 +165,57 @@ public class Player extends exchange.sim.Player {
 			Remark: For Request object, rank ranges between 1 and 2
 		 */
         //this is looking through each offer and changing the market value
-        for( Offer offer : offers) {
-            Sock first = offer.getFirst();
-            Sock second = offer.getSecond();
-            marketValue[first.R/32][first.G/32][first.B/32] -= Math.pow(totalTurns-currentTurn,2);
-            marketValue[second.R/32][second.G/32][second.B/32] -= Math.pow(totalTurns-currentTurn,2);
-        }
-        lastOffers = offers;
+        try {
+            for (Offer offer : offers) {
+                Sock first = offer.getFirst();
+                Sock second = offer.getSecond();
+                if (first != null)
+                    marketValue[first.R / 32][first.G / 32][first.B / 32] -= Math.pow(totalTurns - currentTurn, 2);
+                if (second != null)
+                    marketValue[second.R / 32][second.G / 32][second.B / 32] -= Math.pow(totalTurns - currentTurn, 2);
+            }
+            lastOffers = offers;
 
-        double maxDistanceReduction = getMaxReductionInPairDistance(this.socks[id1]);
-        int maxDistanceReductionOfferId = -1;
-        int maxDistanceReductionOfferRank = -1;
+            double maxDistanceReduction = getMaxReductionInPairDistance(this.socks[id1]);
+            int maxDistanceReductionOfferId = -1;
+            int maxDistanceReductionOfferRank = -1;
 
-        double secondMaxDistanceReduction = getMaxReductionInPairDistance(this.socks[id2]);
-        int secondMaxDistanceReductionOfferId = -1;
-        int secondMaxDistanceReductionOfferRank = -1;
+            double secondMaxDistanceReduction = getMaxReductionInPairDistance(this.socks[id2]);
+            int secondMaxDistanceReductionOfferId = -1;
+            int secondMaxDistanceReductionOfferRank = -1;
 
-        // Find the offered socks that, when paired with any of our socks, will
-        // maximize the reduction in the pair distance.
-        double distanceReduction;
-        for (int i = 0; i < offers.size(); ++i) {
-            if (i == id) continue; // Skip our own offer.
-            for (int j = 1; j < 3; ++j) {
-                Sock s = offers.get(i).getSock(j);
-                if (s == null) continue;
+            // Find the offered socks that, when paired with any of our socks, will
+            // maximize the reduction in the pair distance.
+            double distanceReduction;
+            for (int i = 0; i < offers.size(); ++i) {
+                if (i == id) continue; // Skip our own offer.
+                for (int j = 1; j < 3; ++j) {
+                    Sock s = offers.get(i).getSock(j);
+                    if (s == null) continue;
 
-                distanceReduction = getMaxReductionInPairDistance(s);
-                if (distanceReduction > maxDistanceReduction) {
-                    secondMaxDistanceReduction = maxDistanceReduction;
-                    secondMaxDistanceReductionOfferId = maxDistanceReductionOfferId;
-                    secondMaxDistanceReductionOfferRank = maxDistanceReductionOfferRank;
+                    distanceReduction = getMaxReductionInPairDistance(s);
+                    if (distanceReduction > maxDistanceReduction) {
+                        secondMaxDistanceReduction = maxDistanceReduction;
+                        secondMaxDistanceReductionOfferId = maxDistanceReductionOfferId;
+                        secondMaxDistanceReductionOfferRank = maxDistanceReductionOfferRank;
 
-                    maxDistanceReduction = distanceReduction;
-                    maxDistanceReductionOfferId = i;
-                    maxDistanceReductionOfferRank = j;
-                } else if (distanceReduction > secondMaxDistanceReduction) {
-                    secondMaxDistanceReduction = distanceReduction;
-                    secondMaxDistanceReductionOfferId = i;
-                    secondMaxDistanceReductionOfferRank = j;
+                        maxDistanceReduction = distanceReduction;
+                        maxDistanceReductionOfferId = i;
+                        maxDistanceReductionOfferRank = j;
+                    } else if (distanceReduction > secondMaxDistanceReduction) {
+                        secondMaxDistanceReduction = distanceReduction;
+                        secondMaxDistanceReductionOfferId = i;
+                        secondMaxDistanceReductionOfferRank = j;
+                    }
                 }
             }
-        }
 
-        return new Request(maxDistanceReductionOfferId, maxDistanceReductionOfferRank,
-                secondMaxDistanceReductionOfferId, secondMaxDistanceReductionOfferRank);
+            return new Request(maxDistanceReductionOfferId, maxDistanceReductionOfferRank,
+                    secondMaxDistanceReductionOfferId, secondMaxDistanceReductionOfferRank);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new Request(-1, -1, -1, -1);
+        }
     }
 
     @Override
