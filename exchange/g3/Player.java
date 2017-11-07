@@ -16,12 +16,15 @@ public class Player extends exchange.sim.Player {
     private Sock[] socks;
     private SockCollection socksCollection;
     private int turn = -1;
-
+    private int round = 0;
+    private Boolean transactionSuccess = false;
     private RoundCollection rounds;
+    private int n;
 
     @Override
     public void init(int id, int n, int p, int t, List<Sock> socks) {
         this.id = id;
+        this.n = n;
         this.socks = socks.toArray(new Sock[2 * n]);
         this.socksCollection = new SockCollection(this.socks);
         this.rounds = new RoundCollection();
@@ -41,8 +44,13 @@ public class Player extends exchange.sim.Player {
         rounds.putTransactionInfo(lastRequests, lastTransactions);
 
         int[] worstPairIds = this.socksCollection.getWorstPairIds();
+        //this.id1 = worstPairIds[(round + 0) % (2*n)];
+        //this.id2 = worstPairIds[(round + 1) % (2*n)] ;
+
         this.id1 = worstPairIds[0];
-        this.id2 = worstPairIds[1];
+        this.id2 = worstPairIds[1] ;
+
+        
         return new Offer(
                 this.socksCollection.getSock(this.id1),
                 this.socksCollection.getSock(this.id2));
@@ -59,7 +67,6 @@ public class Player extends exchange.sim.Player {
 
 			Remark: For Request object, rank ranges between 1 and 2
 		 */
-
 		rounds.putOfferInfo(offers);
 
 		List<Integer> availableOffers = new ArrayList<>();
@@ -111,8 +118,20 @@ public class Player extends exchange.sim.Player {
             rank = transaction.getSecondRank();
             newSock = transaction.getFirstSock();
         }
-        if (rank == 1) socksCollection.putSock(id1, newSock);
-        else socksCollection.putSock(id2, newSock);
+
+        if (rank == 1) {
+            socksCollection.putSock(id1, newSock);
+            transactionSuccess = true;            
+        }
+        else{ 
+            socksCollection.putSock(id2, newSock);
+            transactionSuccess = false; 
+        }
+
+        if(transactionSuccess)
+            round = 0;
+        else 
+            round = round + 2;
     }
 
     @Override
@@ -122,7 +141,6 @@ public class Player extends exchange.sim.Player {
 }
 
 // Maintains information of all the rounds.
-// - Need to implement a KB for gathering info.
 class RoundCollection {
     private List<Round> roundsInfo;
     private int turn = -1;

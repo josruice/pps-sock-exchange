@@ -107,32 +107,15 @@ public class SockCollection{
 
     // Change the order of socks in your collection using some algorithm.
     private void preprocessSockCollection() {
-        /*ArrayList<ArrayList<Sock>> rgb = getSockBuckets();
+        ArrayList<ArrayList<Sock>> rgb = getSockBuckets();
         collection.clear();
 
         for (ArrayList<Sock> bucket : rgb) {
             collection.addAll(bucket);
-        }*/
-        ArrayList<Sock> processedSocks = new ArrayList<Sock>();
-        while(!(collection.isEmpty())) {
-          Sock s = collection.get(0);
-          collection.remove(s);
-          double smallest_dist = 442.0; //max distance socks can be
-          Sock bestSock = null;
-          for (Sock s2: collection) {
-            double d = s.distance(s2);
-            if (d < smallest_dist) {
-              smallest_dist = d; 
-              bestSock = s2;
-            }
-          }
-
-          processedSocks.add(s);
-          processedSocks.add(bestSock);
-          collection.remove(bestSock);
         }
-        collection.addAll(processedSocks);
     }
+
+    
 
     private int[] getWorstPairingSockIds() {
         int w1 = -1;

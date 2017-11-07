@@ -68,65 +68,65 @@ public class Player extends exchange.sim.Player {
     }
     
     public SockPair[] generatePairs(Sock[] socks){
-//    	ArrayList<SockPair> allPairs = new ArrayList<SockPair>();
-//    	for(int i = 0; i < socks.length; i++){
-//    		for(int j = i+1; j < socks.length; j++){
-//    			allPairs.add(new SockPair(i,j, socks[i], socks[j]));
-//    		}
-//    	}
-//    	
-//    	allPairs.sort((p1,p2)->{
-//    		return Double.compare(p1.distance,p2.distance);
-//    	});
-//    	
-//    	int j = 0;
-//    	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
-//    	SockPair[] pairs = new SockPair[socks.length/2];
-//    	
-//    	for(int i = 0; i < pairs.length; i++){
-//    		pairs[i] = allPairs.get(j);
-//    		
-//    		pairedSocks.add(pairs[i].id1);
-//    		pairedSocks.add(pairs[i].id2);
-//    		while(j != allPairs.size() && (pairedSocks.contains(allPairs.get(j).id1) | pairedSocks.contains(allPairs.get(j).id2)))
-//    			j++;
-//    	}
-    	int n = socks.length;
-    	float[][] allPairs = new float[2*n*(2*n-1)/2][3];
-    	
-    	int k = 0;
+    	ArrayList<SockPair> allPairs = new ArrayList<SockPair>();
     	for(int i = 0; i < socks.length; i++){
     		for(int j = i+1; j < socks.length; j++){
-    			allPairs[k] = new float[]{i,j, -(float)(socks[i].distance(socks[j]))};
-    			k++;
+    			allPairs.add(new SockPair(i,j, socks[i], socks[j]));
     		}
     	}
     	
-//    	System.out.println("Before Blossom");    	
-    	int[] result = new Blossom(allPairs,true).maxWeightMatching();
-//    	System.out.println("After Blossom");
-    	SockPair[] pairs = new SockPair[socks.length/2];
-    	ArrayList<SockPair> pairsList = new ArrayList<SockPair>();
-    	
-    	int j = 0;
-    	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
-    	
-    	for(int i = 0; i < pairs.length; i++){
-    		pairsList.add(new SockPair(j,result[j],socks[j],socks[result[j]]));
-    		
-    		pairedSocks.add(j);
-    		pairedSocks.add(result[j]);
-    		while(j != result.length && (pairedSocks.contains(j) | pairedSocks.contains(result[j])))
-    			j++;
-    	}
-    	
-    	pairsList.sort((p1,p2)->{
+    	allPairs.sort((p1,p2)->{
     		return Double.compare(p1.distance,p2.distance);
     	});
     	
+    	int j = 0;
+    	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
+    	SockPair[] pairs = new SockPair[socks.length/2];
+    	
     	for(int i = 0; i < pairs.length; i++){
-    		pairs[i] = pairsList.get(i);
+    		pairs[i] = allPairs.get(j);
+    		
+    		pairedSocks.add(pairs[i].id1);
+    		pairedSocks.add(pairs[i].id2);
+    		while(j != allPairs.size() && (pairedSocks.contains(allPairs.get(j).id1) | pairedSocks.contains(allPairs.get(j).id2)))
+    			j++;
     	}
+//    	int n = socks.length;
+//    	float[][] allPairs = new float[2*n*(2*n-1)/2][3];
+//    	
+//    	int k = 0;
+//    	for(int i = 0; i < socks.length; i++){
+//    		for(int j = i+1; j < socks.length; j++){
+//    			allPairs[k] = new float[]{i,j, -(float)(socks[i].distance(socks[j]))};
+//    			k++;
+//    		}
+//    	}
+//    	
+////    	System.out.println("Before Blossom");    	
+//    	int[] result = new Blossom(allPairs,true).maxWeightMatching();
+////    	System.out.println("After Blossom");
+//    	SockPair[] pairs = new SockPair[socks.length/2];
+//    	ArrayList<SockPair> pairsList = new ArrayList<SockPair>();
+//    	
+//    	int j = 0;
+//    	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
+//    	
+//    	for(int i = 0; i < pairs.length; i++){
+//    		pairsList.add(new SockPair(j,result[j],socks[j],socks[result[j]]));
+//    		
+//    		pairedSocks.add(j);
+//    		pairedSocks.add(result[j]);
+//    		while(j != result.length && (pairedSocks.contains(j) | pairedSocks.contains(result[j])))
+//    			j++;
+//    	}
+//    	
+//    	pairsList.sort((p1,p2)->{
+//    		return Double.compare(p1.distance,p2.distance);
+//    	});
+//    	
+//    	for(int i = 0; i < pairs.length; i++){
+//    		pairs[i] = pairsList.get(i);
+//    	}
     		
     	return pairs;
     }
@@ -174,7 +174,21 @@ public class Player extends exchange.sim.Player {
 			lastRequests.get(i)		-		Player i's request last round
 			lastTransactions		-		All completed transactions last round.
 		 */
-		 if(tradeHappened){
+    	pairs = generatePairs(socks);
+        int j = 0;
+        Sock[] copy = Arrays.copyOf(socks,socks.length);
+        
+        for(int i = 0; i < pairs.length; i++){
+        	socks[j] = copy[pairs[i].id1];
+        	socks[j+1] = copy[pairs[i].id2];
+        	pairs[i].id1 = j;
+        	pairs[i].id2 = j+1;
+        	j = j + 2;
+        } 
+    	
+    	
+    	
+    	if(tradeHappened){
 			 noTradeCount = 0;
 			 tradeHappened = false;
 		 }
@@ -222,7 +236,9 @@ public class Player extends exchange.sim.Player {
     	int offerColor2 = maxMinSocks[attractivePlayers.get(index2)][0];
     	
     	id1 = getRandomColoredSock(offerColor1);
+    	do{
     	id2 = getRandomColoredSock(offerColor2);
+    	}while(id2 == id1);
 		
 //    	return new Offer(sock1,sock2);
     	return new Offer(socks[id1],socks[id2]);
@@ -458,17 +474,17 @@ public class Player extends exchange.sim.Player {
         }
         
 		tradeHappened = true;
-        pairs = generatePairs(socks);
-        int j = 0;
-        Sock[] copy = Arrays.copyOf(socks,socks.length);
-        
-        for(int i = 0; i < pairs.length; i++){
-        	socks[j] = copy[pairs[i].id1];
-        	socks[j+1] = copy[pairs[i].id2];
-        	pairs[i].id1 = j;
-        	pairs[i].id2 = j+1;
-        	j = j + 2;
-        }
+//        pairs = generatePairs(socks);
+//        int j = 0;
+//        Sock[] copy = Arrays.copyOf(socks,socks.length);
+//        
+//        for(int i = 0; i < pairs.length; i++){
+//        	socks[j] = copy[pairs[i].id1];
+//        	socks[j+1] = copy[pairs[i].id2];
+//        	pairs[i].id1 = j;
+//        	pairs[i].id2 = j+1;
+//        	j = j + 2;
+//        }
     }
 
     @Override
