@@ -42,7 +42,7 @@ public class SockHelper {
             //System.out.println(i);
             Sock curr = socks.get(i);
             if(isPaired.get(curr)!=null){
-                System.out.println(curr);
+//                System.out.println(curr);
                 continue;
             }
             double[] colors = {curr.R,curr.G,curr.B};
