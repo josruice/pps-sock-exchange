@@ -146,8 +146,8 @@ public class Player extends exchange.sim.Player {
         }
 
 
-        id1 = getSocks().indexOf(maxMarketPair.s1);
-        id2 = getSocks().indexOf(maxMarketPair.s2);
+        id1 = Arrays.asList(socks).indexOf(maxMarketPair.s1);
+        id2 = Arrays.asList(socks).indexOf(maxMarketPair.s2);
         maxMarketPair.timesOffered++;
 
         return new Offer(maxMarketPair.s1,maxMarketPair.s2);
