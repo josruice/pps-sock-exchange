@@ -29,9 +29,9 @@ public class Player extends exchange.sim.Player {
     private int numSocks;
     private boolean shouldRecomputePairing;
 
-    private int[][][] marketValue;
     private PriorityQueue<SockPair> rankedPairs;
     private List<Offer> lastOffers = null;
+    private Map<Sock,Map<Sock,Double>> singleExchangeEmbarrasments;
 
     @Override
     public void init(int id, int n, int p, int t, List<Sock> socks) {
@@ -42,12 +42,12 @@ public class Player extends exchange.sim.Player {
         this.numSocks = n*2;
         this.socks = (Sock[]) socks.toArray(new Sock[2 * n]);
 
-        this.marketValue = new int[8][8][8]; //Splitting into 8 equal sized rgb segments
         this.rankedPairs = new PriorityQueue<SockPair>();
 
         System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
         pairBlossom();
         this.shouldRecomputePairing = false;
+        this.singleExchangeEmbarrasments = new HashMap<>();
     }
 
     private double getEmbarrasment() {
@@ -118,43 +118,28 @@ public class Player extends exchange.sim.Player {
 			lastRequests.get(i)		-		Player i's request last round
 			lastTransactions		-		All completed transactions last round.
 		 */
-        //changing weights based on each request
-        for (Request request : lastRequests) {
-            if(request == null) continue;
-            if(request.getFirstID() >= 0 && request.getFirstRank() >= 0) {
-                Sock first = lastOffers.get(request.getFirstID()).getSock(request.getFirstRank());
-                marketValue[first.R/32][first.G/32][first.B/32] += Math.pow(totalTurns-currentTurn,2);
-            }
-            if(request.getSecondID() >= 0 && request.getSecondRank() >= 0) {
-                Sock second = lastOffers.get(request.getSecondID()).getSock(request.getSecondRank());
-                marketValue[second.R/32][second.G/32][second.B/32] += Math.pow(totalTurns-currentTurn,2);
-            }
-        }
-
+        
         currentTurn--;
         if (this.shouldRecomputePairing) {
             rankedPairs.clear();
             pairBlossom();
             this.shouldRecomputePairing = false;
+            singleExchangeEmbarrasments.clear();
         }
         
         // Getting the worst paired socks.
 
         List<SockPair> poppedPair = new ArrayList<>();
-        SockPair maxMarketPair = rankedPairs.poll();
-        poppedPair.add(maxMarketPair);
+        SockPair maxPair = rankedPairs.poll();
+        poppedPair.add(maxPair);
 
-        int maxMarketValue = 2*marketValue[maxMarketPair.s1.R/32][maxMarketPair.s1.G/32][maxMarketPair.s1.B/32] +
-            marketValue[maxMarketPair.s2.R/32][maxMarketPair.s2.G/32][maxMarketPair.s2.B/32];
-
-        for(int i=0; i<5; i++) {
+        int bound = (int) (numSocks*.1)/2;
+        for(int i=0; i<bound; i++) {
             SockPair next = rankedPairs.poll();
             poppedPair.add(next);
-            int nextMarketValue = marketValue[next.s1.R/32][next.s1.G/32][next.s1.B/32] + marketValue[next.s2.R/32][next.s2.G/32][next.s2.B/32];
-            if (next.timesOffered <= maxMarketPair.timesOffered-3 ||
-                    (nextMarketValue > maxMarketValue && next.timesOffered <= maxMarketPair.timesOffered)) {
-                maxMarketPair = next;
-                maxMarketValue = nextMarketValue;
+            if (next.timesOffered <= maxPair.timesOffered-3 ||
+                    (next.distance > maxPair.distance && next.timesOffered <= maxPair.timesOffered)) {
+                maxPair = next;
             }
         }
         for(SockPair pair : poppedPair) {
@@ -162,11 +147,11 @@ public class Player extends exchange.sim.Player {
         }
 
 
-        id1 = getSocks().indexOf(maxMarketPair.s1);
-        id2 = getSocks().indexOf(maxMarketPair.s2);
-        maxMarketPair.timesOffered++;
+        id1 = Arrays.asList(socks).indexOf(maxPair.s1);
+        id2 = id1+1;
+        maxPair.timesOffered++;
 
-        return new Offer(maxMarketPair.s1,maxMarketPair.s2);
+        return new Offer(maxPair.s1,maxPair.s2);
     }
 
     @Override
@@ -182,14 +167,6 @@ public class Player extends exchange.sim.Player {
 		 */
         //this is looking through each offer and changing the market value
         try {
-            for (Offer offer : offers) {
-                Sock first = offer.getFirst();
-                Sock second = offer.getSecond();
-                if (first != null)
-                    marketValue[first.R / 32][first.G / 32][first.B / 32] -= Math.pow(totalTurns - currentTurn, 2);
-                if (second != null)
-                    marketValue[second.R / 32][second.G / 32][second.B / 32] -= Math.pow(totalTurns - currentTurn, 2);
-            }
             lastOffers = offers;
 
             double maxDistanceReduction = getMaxReductionInPairDistance(this.socks[id1]);
@@ -210,14 +187,16 @@ public class Player extends exchange.sim.Player {
             double embarrasmentExchangingId2ForS1;
             double embarrasmentExchangingId1ForS2;
             double embarrasmentExchangingId2ForS2;
-            double embarrasmentExchangingId1AndId2;
+            double embarrasmentExchangingId1AndId2 = 0;
             double minPairEmbarrasment = currentEmbarrasment;
 
             double minSingleEmbarrasment = currentEmbarrasment;
             int singleId = -1;
             int singleRank = -1;
 
-            double[][][] singleExchangeEmbarrasments = new double[offers.size()][2][2];
+            Sock sock1 = socks[id1];
+            Sock sock2 = socks[id2];
+
             boolean keepLooking = true;
             for (int i = 0; i < offers.size() && keepLooking; ++i) {
                 if (i == id) continue; // Skip our own offer.
@@ -226,15 +205,18 @@ public class Player extends exchange.sim.Player {
                     if (s1 == null) continue;
 
                     socksNoId1[id1] = s1;
-                    if (singleExchangeEmbarrasments[i][j-1][0] == 0.0)
-                        singleExchangeEmbarrasments[i][j-1][0] = getEmbarrasment(pairBlossom(socksNoId1));
-                    embarrasmentExchangingId1ForS1 = singleExchangeEmbarrasments[i][j-1][0];
+                    if (!singleExchangeEmbarrasments.containsKey(s1)) singleExchangeEmbarrasments.put(s1,new HashMap<>());
+                    if (!singleExchangeEmbarrasments.get(s1).containsKey(sock1)) { 
+                        singleExchangeEmbarrasments.get(s1).put(sock1,getEmbarrasment(pairBlossom(socksNoId1)));
+                    }
+                    embarrasmentExchangingId1ForS1 = singleExchangeEmbarrasments.get(s1).get(sock1);
                     if (embarrasmentExchangingId1ForS1 > currentEmbarrasment) continue;
 
                     socksNoId2[id2] = s1;
-                    if (singleExchangeEmbarrasments[i][j-1][1] == 0.0)
-                        singleExchangeEmbarrasments[i][j-1][1] = getEmbarrasment(pairBlossom(socksNoId2));
-                    embarrasmentExchangingId2ForS1 = singleExchangeEmbarrasments[i][j-1][1];
+                    if (!singleExchangeEmbarrasments.get(s1).containsKey(sock2)) { 
+                        singleExchangeEmbarrasments.get(s1).put(sock2,getEmbarrasment(pairBlossom(socksNoId2)));
+                    }
+                    embarrasmentExchangingId2ForS1 = singleExchangeEmbarrasments.get(s1).get(sock2);
                     if (embarrasmentExchangingId2ForS1 > currentEmbarrasment) continue;
 
                     avgEmbarrasment = (embarrasmentExchangingId1ForS1 + embarrasmentExchangingId2ForS1)/2;
@@ -247,24 +229,29 @@ public class Player extends exchange.sim.Player {
 
                     socksNoId1NorId2[id1] = s1;
                     for (int k = i; k < offers.size() && keepLooking; ++k) {
+                        if (keepLooking == false) break;
                         if (k == id) continue; // Skip our own offer.
                         for (int l = j+1; l < 3 && keepLooking; ++l) {
                             Sock s2 = offers.get(k).getSock(l);
                             if (s2 == null) continue;
 
                             socksNoId1[id1] = s2;
-                            if (singleExchangeEmbarrasments[k][l-1][0] == 0.0)
-                                singleExchangeEmbarrasments[k][l-1][0] = getEmbarrasment(pairBlossom(socksNoId1));
-                            embarrasmentExchangingId1ForS2 = singleExchangeEmbarrasments[k][l-1][0];
+                            if (!singleExchangeEmbarrasments.containsKey(s2)) singleExchangeEmbarrasments.put(s2,new HashMap<>());
+                            if (!singleExchangeEmbarrasments.get(s2).containsKey(sock1)) { 
+                                singleExchangeEmbarrasments.get(s2).put(sock1,getEmbarrasment(pairBlossom(socksNoId1)));
+                            }
+                            embarrasmentExchangingId1ForS2 = singleExchangeEmbarrasments.get(s2).get(sock1);
                             if (embarrasmentExchangingId1ForS2 > currentEmbarrasment) continue;
 
                             socksNoId2[id2] = s2;
-                            if (singleExchangeEmbarrasments[k][l-1][1] == 0.0)
-                                singleExchangeEmbarrasments[k][l-1][1] = getEmbarrasment(pairBlossom(socksNoId2));
-                            embarrasmentExchangingId2ForS2 = singleExchangeEmbarrasments[k][l-1][1];
+                            if (!singleExchangeEmbarrasments.get(s2).containsKey(sock2)) { 
+                                singleExchangeEmbarrasments.get(s2).put(sock2,getEmbarrasment(pairBlossom(socksNoId2)));
+                            }
+                            embarrasmentExchangingId2ForS2 = singleExchangeEmbarrasments.get(s2).get(sock2);
                             if (embarrasmentExchangingId2ForS2 > currentEmbarrasment) continue;
 
                             socksNoId1NorId2[id2] = s2;
+                            if(totalTurns < 100)
                             embarrasmentExchangingId1AndId2 = getEmbarrasment(pairBlossom(socksNoId1NorId2));
 
                             if (embarrasmentExchangingId1AndId2 > currentEmbarrasment) continue;
@@ -277,7 +264,7 @@ public class Player extends exchange.sim.Player {
                                 firstRank = j;
                                 secondId = k;
                                 secondRank = l;
-                                keepLooking = true; // Use this assignment to improve efficiency.
+                                if(totalTurns > 100 && avgEmbarrasment < currentEmbarrasment) keepLooking = false; // Use this assignment to improve efficiency.
                             }
                         }
                     }
