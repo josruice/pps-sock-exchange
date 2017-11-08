@@ -1,5 +1,5 @@
-n=40
-t=0
+n=100
+t=100
 p=g2
 
 all:
@@ -12,4 +12,4 @@ clean:
 	rm exchange/*/*.class
 
 verbose:
-	java exchange.sim.Simulator -p ${p} ${p} ${p} ${p} ${p} ${p} ${p} ${p} ${p} ${p} ${p} ${p} -n ${n} -t ${t} -v
+	java exchange.sim.Simulator -p ${p} ${p} -n ${n} -t ${t} -v
