@@ -55,7 +55,7 @@ public class Player extends exchange.sim.Player {
         this.THRESHOLD = createThreshold();
 
         System.out.println("Initial embarrassment for player " + id+ ": " + getEmbarrasment());
-        pairBlossom();
+        pairAlgo();
     }
 
     private HashMap< Integer, HashMap<Integer,Double>> createThreshold(){
@@ -154,6 +154,24 @@ public class Player extends exchange.sim.Player {
         return result;
     }
 
+    public Sock[] pairAlgo(Sock[] socks) {
+        Sock[] result;
+        if(this.numSocks < 300){
+            result = pairBlossom(socks);
+        } else {
+            result  = pairGreedily(socks);
+        }
+        return result;
+    }
+
+    public void pairAlgo() {
+        if(this.numSocks < 300){
+            this.socks = pairBlossom(this.socks, true);
+        } else {
+            this.socks = pairGreedily(this.socks, true);
+        }
+    }
+
     public void pairBlossom() {
         this.socks = pairBlossom(this.socks, true);
     }
@@ -178,6 +196,45 @@ public class Player extends exchange.sim.Player {
             updateOfferSocks(this.threshold);
         }
         return (Sock[]) result.toArray(new Sock[socks.length]);
+    }
+
+    public void pairGreedily() {
+        this.socks = pairGreedily(this.socks, true);
+    }
+
+    public Sock[] pairGreedily(Sock[] socks) {
+        return pairGreedily(socks, false);
+    }
+
+    private Sock[] pairGreedily(Sock[] socks, boolean updateRankedPairs) {
+        PriorityQueue<SockPair> queue = new PriorityQueue<SockPair>();
+        for (int i = 0; i < socks.length ; i++){
+            for (int j = 0; j < i; j++){
+                queue.add(new SockPair(socks[i],socks[j]));
+            }
+        }
+
+
+        HashSet<Sock> matched = new HashSet<Sock>();
+        while(matched.size() < socks.length ){
+            SockPair pair = queue.poll();
+            if(pair != null) {
+                if(!matched.contains(pair.s1) && !matched.contains(pair.s2)){
+                    matched.add(pair.s1);
+                    socks[matched.size()-1] = pair.s1;
+                    matched.add(pair.s2);
+                    socks[matched.size()-1] = pair.s2;
+                    if (updateRankedPairs) {
+                        this.rankedPairs.add(pair);
+                    }
+                }
+            }
+        }
+        if (updateRankedPairs) {
+            this.threshold = 10;
+            updateOfferSocks(this.threshold);
+        }
+        return socks;
     }
 
     private void updateOfferSocks(int threshold){
@@ -239,7 +296,7 @@ public class Player extends exchange.sim.Player {
         currentTurn--;
         if (this.shouldRecomputePairing) {
             rankedPairs.clear();
-            pairBlossom();
+            pairAlgo();
             this.shouldRecomputePairing = false;
         }
 
@@ -321,14 +378,16 @@ public class Player extends exchange.sim.Player {
                     if (s1 == null) continue;
 
                     socksNoofferingS1[offeringS1] = s1;
-                    if (singleExchangeEmbarrasments[i][j-1][0] == 0.0)
-                        singleExchangeEmbarrasments[i][j-1][0] = getEmbarrasment(pairBlossom(socksNoofferingS1));
+                    if (singleExchangeEmbarrasments[i][j-1][0] == 0.0){
+                        singleExchangeEmbarrasments[i][j-1][0] = getEmbarrasment(pairAlgo(socksNoofferingS1));
+                    }
                     embarrasmentExchangingofferingS1ForS1 = singleExchangeEmbarrasments[i][j-1][0];
                     if (embarrasmentExchangingofferingS1ForS1 > currentEmbarrasment) continue;
 
                     socksNoofferingS2[offeringS2] = s1;
-                    if (singleExchangeEmbarrasments[i][j-1][1] == 0.0)
-                        singleExchangeEmbarrasments[i][j-1][1] = getEmbarrasment(pairBlossom(socksNoofferingS2));
+                    if (singleExchangeEmbarrasments[i][j-1][1] == 0.0){
+                        singleExchangeEmbarrasments[i][j-1][1] = getEmbarrasment(pairAlgo(socksNoofferingS2));
+                    }
                     embarrasmentExchangingofferingS2ForS1 = singleExchangeEmbarrasments[i][j-1][1];
                     if (embarrasmentExchangingofferingS2ForS1 > currentEmbarrasment) continue;
 
@@ -349,18 +408,18 @@ public class Player extends exchange.sim.Player {
 
                             socksNoofferingS1[offeringS1] = s2;
                             if (singleExchangeEmbarrasments[k][l-1][0] == 0.0)
-                                singleExchangeEmbarrasments[k][l-1][0] = getEmbarrasment(pairBlossom(socksNoofferingS1));
+                                singleExchangeEmbarrasments[k][l-1][0] = getEmbarrasment(pairAlgo(socksNoofferingS1));
                             embarrasmentExchangingofferingS1ForS2 = singleExchangeEmbarrasments[k][l-1][0];
                             if (embarrasmentExchangingofferingS1ForS2 > currentEmbarrasment) continue;
 
                             socksNoofferingS2[offeringS2] = s2;
                             if (singleExchangeEmbarrasments[k][l-1][1] == 0.0)
-                                singleExchangeEmbarrasments[k][l-1][1] = getEmbarrasment(pairBlossom(socksNoofferingS2));
+                                singleExchangeEmbarrasments[k][l-1][1] = getEmbarrasment(pairAlgo(socksNoofferingS2));
                             embarrasmentExchangingofferingS2ForS2 = singleExchangeEmbarrasments[k][l-1][1];
                             if (embarrasmentExchangingofferingS2ForS2 > currentEmbarrasment) continue;
 
                             socksNoofferingS1NorofferingS2[offeringS2] = s2;
-                            embarrasmentExchangingofferingS1AndofferingS2 = getEmbarrasment(pairBlossom(socksNoofferingS1NorofferingS2));
+                            embarrasmentExchangingofferingS1AndofferingS2 = getEmbarrasment(pairAlgo(socksNoofferingS1NorofferingS2));
 
                             if (embarrasmentExchangingofferingS1AndofferingS2 > currentEmbarrasment) continue;
                             avgEmbarrasment = (embarrasmentExchangingofferingS1ForS1 + embarrasmentExchangingofferingS1ForS2 +
@@ -423,7 +482,7 @@ public class Player extends exchange.sim.Player {
 
     @Override
     public List<Sock> getSocks() {
-        pairBlossom();
+        pairAlgo();
         return Arrays.asList(socks);
     }
 }
