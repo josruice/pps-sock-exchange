@@ -63,6 +63,7 @@ public class Player extends exchange.sim.Player {
         this.rankedPairs = new PriorityQueue<SockPair>();
         this.offerSocks = new HashMap<Sock, Integer>();
         this.THRESHOLD = createThreshold();
+        this.threshold = 95;
 
         if(numSocks > 100) {
             largeNumSocks = true;
@@ -132,44 +133,18 @@ public class Player extends exchange.sim.Player {
         n_100.put(95,53.57424692);
         n_100.put(100,96.64884893);
 
-        HashMap<Integer,Double> n_1000 = new HashMap<Integer,Double>();
-        n_1000.put(0,1.0);
-        n_1000.put(5,5.385164807);
-        n_1000.put(10,7.063961031);
-        n_1000.put(15,8.062257748);
-        n_1000.put(20,8.921769701);
-        n_1000.put(25,9.848857802);
-        n_1000.put(30,10.77032961);
-        n_1000.put(35,11.79617614);
-        n_1000.put(40,12.68857754);
-        n_1000.put(45,13.49443368);
-        n_1000.put(50,14.3874526);
-        n_1000.put(55,15.06651917);
-        n_1000.put(60,15.8113883);
-        n_1000.put(65,16.74959622);
-        n_1000.put(70,17.72004515);
-        n_1000.put(75,18.6747591);
-        n_1000.put(80,20.05492211);
-        n_1000.put(85,21.35993629);
-        n_1000.put(90,23.18187508);
-        n_1000.put(95,25.72824175);
-        n_1000.put(100,37.33630941);
-
-
         result.put(10, n_10);
         result.put(100, n_100);
-        result.put(1000, n_1000);
 
         return result;
     }
-
+    
     private void updateOfferSocks(int threshold){
-        PriorityQueue<SockPair> cloneRank = new PriorityQueue(rankedPairs);
         HashMap<Sock, Integer> cloneOffer = new HashMap(this.offerSocks);
 
         this.offerSocks.clear();
         for(SockPair pair:rankedPairs){
-            if ( pair.distance > this.THRESHOLD.get(this.numSocks/2).get(threshold)){
+            if (largeNumSocks==true || pair.distance > this.THRESHOLD.get(this.numSocks/2).get(threshold)){
                 if(!cloneOffer.containsKey(pair.s1)){
                     this.offerSocks.put(pair.s1,0);
                 } else {
@@ -211,7 +186,8 @@ public class Player extends exchange.sim.Player {
         } else {
             result  = pairGreedily(socks);
         }
-            return result;
+        updateOfferSocks(this.threshold);
+        return result;
     }
 
 
@@ -221,6 +197,7 @@ public class Player extends exchange.sim.Player {
         } else {
             this.socks = pairGreedily(this.socks, true);
         }
+        updateOfferSocks(this.threshold);
    }
 
    public void pairGreedily() {
@@ -256,10 +233,7 @@ public class Player extends exchange.sim.Player {
                 }
             }
         }
-        if (updateRankedPairs) {
-            //this.threshold = 10;
-            //updateOfferSocks(this.threshold);
-        }
+        
         return socks;
    }
 
@@ -323,17 +297,29 @@ public class Player extends exchange.sim.Player {
             } else {
                 pairAlgo();
             }
-            pairAlgo();
-
             this.shouldRecomputePairing = false;
             singleExchangeEmbarrasments.clear();
         }
-        
-        double sum = 0.0;
-        for (double d : this.offerSocks.values()) {
-            sum += d;
+
+        boolean twice = true;
+        for(int times : this.offerSocks.values()) {
+            if(times<2) {
+                twice = false;
+                break;
+            }
         }
 
+        while (twice == true || this.offerSocks.size() == 0) {
+            this.threshold -= 5;
+            updateOfferSocks(this.threshold);
+
+            double sum = 0.0;
+            for (double d : this.offerSocks.values()) {
+                sum += d;
+            }
+            twice = false;
+        }
+        
         //------------------------------------------------------------------------------------------------------------
         // Market value
         //------------------------------------------------------------------------------------------------------------
@@ -380,103 +366,41 @@ public class Player extends exchange.sim.Player {
         while(oldestRequested != null && (currentTurn - oldestRequested.turn) > REQUESTED_TURNS_THRESHOLD);
         if (oldestRequested != null) requestedSocks.addLast(oldestRequested);
 
-
-        //------------------------------------------------------------------------------------------------------------
-        // Offering by threshold.
-        //------------------------------------------------------------------------------------------------------------
-
-//        while (this.threshold < 30 && (sum > 2 * this.offerSocks.size() || this.offerSocks.size() == 0)){
-//            this.threshold += 5;
-//            updateOfferSocks(this.threshold);
-//
-//            sum = 0.0;
-//            for (double d : this.offerSocks.values()) {
-//                sum += d;
-//            }
-//        }
-//
-//        Set<Map.Entry<Sock,Integer>> entries = offerSocks.entrySet();
-//        List<Map.Entry<Sock,Integer>> sortedEntries = new ArrayList<>(entries);
-//        Collections.sort(sortedEntries, new Comparator<Map.Entry<Sock, Integer>>() {
-//            public int compare(Map.Entry<Sock,Integer> x, Map.Entry<Sock,Integer> y) {
-//                return x.getValue() - y.getValue();
-//            }
-//        });
-//
-//        // Get a sock from the offering pile
-//        offeringS1 = Arrays.asList(socks).indexOf(sortedEntries.get(0).getKey());
-//        offeringS2 = Arrays.asList(socks).indexOf(sortedEntries.get(1).getKey());
-//        this.offerSocks.put(this.socks[offeringS1],  this.offerSocks.get(this.socks[offeringS1]) + 1 );
-//        this.offerSocks.put(this.socks[offeringS2],  this.offerSocks.get(this.socks[offeringS2]) + 1 );
-//
-//        return new Offer(this.socks[offeringS1],this.socks[offeringS2]);
-
-        //------------------------------------------------------------------------------------------------------------
-        // Getting socks in the worst pairs and with high market value.
-        //------------------------------------------------------------------------------------------------------------
-
         List<SockPair> poppedPair = new ArrayList<>();
 
-        int bound = this.numSocks/2;
-        if(numSocks >= 1000) {
-            bound = 50;
-        }
-
-        Sock maxMarketValueSock = rankedPairs.peek().s1;  // Default for the first turn, when there are no requested socks yet.
-        double maxMarketValue = 0.0;
+        Sock maxMarketValueSock = null;  // Default for the first turn, when there are no requested socks yet.
+        double maxMarketValue = -1;
         double[] maxMarketValuePerPlayer = new double[numPlayers];
 
-        Sock secondMaxMarketValueSock = rankedPairs.peek().s2;
-        double secondMaxMarketValue = 0.0;
+        Sock secondMaxMarketValueSock = null;
+        double secondMaxMarketValue = -1;
         double[] secondMarketValuePerPlayer = new double[numPlayers];
-
-        for(int i=0; i<bound; i++) {
-            SockPair next = rankedPairs.poll();
-            poppedPair.add(next);
-
+        
+        for(Sock next : this.offerSocks.keySet()) {
             // Market value continuation. Now we have to compute the market value of each of the socks.
             // Note: If this becomes a bottleneck in terms of efficiency, I have ideas about how to improve it.
-            double s1MarketValue = 0.0;
-            double[] s1MarketValueByPlayer = new double[numPlayers];
-            double s2MarketValue = 0.0;
-            double[] s2MarketValueByPlayer = new double[numPlayers];
+            double marketValue = 0.0;
+            double[] marketValueByPlayer = new double[numPlayers];
             for (RequestedSock rs : requestedSocks) {
                 // Right now we are allowing a sock to be compared with itself, which will give it a high market value
                 // if it has been requested (since the distance will be minimal). To disallow this check that !rs.equals(next.s1).
-                s1MarketValue += rs.getPartialMarketValue(next.s1, currentTurn);
-                s1MarketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next.s1, currentTurn);
-                s2MarketValue += rs.getPartialMarketValue(next.s2, currentTurn);
-                s2MarketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next.s2, currentTurn);
+                marketValue += rs.getPartialMarketValue(next, currentTurn);
+                marketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next, currentTurn);
             }
 
-            if (s1MarketValue > maxMarketValue) {
+            if (marketValue > maxMarketValue) {
                 secondMaxMarketValue = maxMarketValue;
                 secondMaxMarketValueSock = maxMarketValueSock;
-                maxMarketValue = s1MarketValue;
-                maxMarketValueSock = next.s1;
-                maxMarketValuePerPlayer = s1MarketValueByPlayer;
-            } else if (s1MarketValue > secondMaxMarketValue) {
-                secondMaxMarketValue = s1MarketValue;
-                secondMaxMarketValueSock = next.s1;
-                secondMarketValuePerPlayer = s1MarketValueByPlayer;
-            }
-
-            if (s2MarketValue > maxMarketValue) {
-                secondMaxMarketValue = maxMarketValue;
-                secondMaxMarketValueSock = maxMarketValueSock;
-                maxMarketValue = s2MarketValue;
-                maxMarketValueSock = next.s2;
-                maxMarketValuePerPlayer = s2MarketValueByPlayer;
-            } else if (s2MarketValue > secondMaxMarketValue) {
-                secondMaxMarketValue = s2MarketValue;
-                secondMaxMarketValueSock = next.s2;
-                secondMarketValuePerPlayer = s2MarketValueByPlayer;
+                maxMarketValue = marketValue;
+                maxMarketValueSock = next;
+                maxMarketValuePerPlayer = marketValueByPlayer;
+            } else if (marketValue > secondMaxMarketValue) {
+                secondMaxMarketValue = marketValue;
+                secondMaxMarketValueSock = next;
+                secondMarketValuePerPlayer = marketValueByPlayer;
             }
         }
-        for(SockPair pair : poppedPair) {
-            rankedPairs.add(pair);
-        }
-
+        
         // We need to find them individually since they might be part of the same pair.
         List<Sock> temp = Arrays.asList(socks);
         offeringS1 = temp.indexOf(maxMarketValueSock);
