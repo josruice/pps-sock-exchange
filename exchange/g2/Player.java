@@ -80,6 +80,7 @@ public class Player extends exchange.sim.Player {
             notConsidered = Arrays.copyOfRange(this.socks,0,this.socks.length-CONSIDERED);
             this.socks = Arrays.copyOfRange(this.socks,this.socks.length-CONSIDERED,this.socks.length);
         }
+        updateOfferSocks(this.threshold);
         this.shouldRecomputePairing = false;
         this.singleExchangeEmbarrasments = new HashMap<>();
     }
@@ -141,8 +142,8 @@ public class Player extends exchange.sim.Player {
     
     private void updateOfferSocks(int threshold){
         HashMap<Sock, Integer> cloneOffer = new HashMap(this.offerSocks);
-
         this.offerSocks.clear();
+        if(!largeNumSocks) {
         for(SockPair pair:rankedPairs){
             if (largeNumSocks==true || pair.distance > this.THRESHOLD.get(this.numSocks/2).get(threshold)){
                 if(!cloneOffer.containsKey(pair.s1)){
@@ -155,6 +156,12 @@ public class Player extends exchange.sim.Player {
                 } else {
                     this.offerSocks.put(pair.s2,cloneOffer.get(pair.s2));
                 }
+            }
+        }
+        } else {
+            int bound = 20;
+            for(int i=socks.length-1;i>socks.length-1-bound;i--) {
+                this.offerSocks.put(socks[i],0);
             }
         }
     }
@@ -186,7 +193,6 @@ public class Player extends exchange.sim.Player {
         } else {
             result  = pairGreedily(socks);
         }
-        updateOfferSocks(this.threshold);
         return result;
     }
 
@@ -197,7 +203,6 @@ public class Player extends exchange.sim.Player {
         } else {
             this.socks = pairGreedily(this.socks, true);
         }
-        updateOfferSocks(this.threshold);
    }
 
    public void pairGreedily() {
@@ -299,6 +304,7 @@ public class Player extends exchange.sim.Player {
             }
             this.shouldRecomputePairing = false;
             singleExchangeEmbarrasments.clear();
+            updateOfferSocks(this.threshold);
         }
 
         boolean twice = true;
@@ -444,7 +450,7 @@ public class Player extends exchange.sim.Player {
 
             Sock sock1 = socks[offeringS1];
             Sock sock2 = socks[offeringS2];
-
+            
             boolean keepLooking = true;
             for (int i = 0; i < offers.size() && keepLooking; ++i) {
                 if (i == id) continue; // Skip our own offer.
