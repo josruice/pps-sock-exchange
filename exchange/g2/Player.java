@@ -123,8 +123,8 @@ public class Player extends exchange.sim.Player {
             }
         }
         if (updateRankedPairs) {
-            this.threshold = 10;
-            updateOfferSocks(this.threshold);
+            //this.threshold = 10;
+            //updateOfferSocks(this.threshold);
         }
         return socks;
    }
@@ -221,8 +221,9 @@ public class Player extends exchange.sim.Player {
         }
 
 
-        id1 = Arrays.asList(socks).indexOf(maxPair.s1);
-        id2 = id1+1;
+        List<Sock> temp = Arrays.asList(socks);
+        id1 = temp.indexOf(maxPair.s1);
+        id2 = temp.indexOf(maxPair.s2);
         maxPair.timesOffered++;
 
         return new Offer(maxPair.s1,maxPair.s2);
@@ -338,7 +339,10 @@ public class Player extends exchange.sim.Player {
                                 firstRank = j;
                                 secondId = k;
                                 secondRank = l;
-                                if(totalTurns > 100 && avgEmbarrasment < currentEmbarrasment) keepLooking = false; // Use this assignment to improve efficiency.
+                                if(totalTurns > 100 && avgEmbarrasment < currentEmbarrasment) {
+                                    keepLooking = false;
+                                    break;
+                                }
                             }
                         }
                     }
