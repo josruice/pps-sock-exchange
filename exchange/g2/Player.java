@@ -10,6 +10,7 @@ import exchange.sim.Transaction;
 public class Player extends exchange.sim.Player {
 
     private final int K = 2;
+    private final boolean DEBUG = true;
 
     /*
         Inherited from exchange.sim.Player:
@@ -21,8 +22,14 @@ public class Player extends exchange.sim.Player {
     private HashMap<Integer, HashMap<Integer,Double>> THRESHOLD;
     private int threshold;
     private int offeringS1, offeringS2, id;
+    private double offeringS1MarketValue, offeringS2MarketValue;
+    private double[] offeringS1MarketValuePerPlayer, offeringS2MarketValuePerPlayer;
 
     private Sock[] socks;
+
+    private Deque<RequestedSock> requestedSocks;
+    private final int REQUESTED_TURNS_THRESHOLD = 50; // Requested socks older than this will be discarded from the queue.
+    private int requestsReceivedCounter; // Count the number of times our offered socks have been requested to benchmark.
 
     private int currentTurn;
     private int totalTurns;
@@ -39,10 +46,12 @@ public class Player extends exchange.sim.Player {
     public void init(int id, int n, int p, int t, List<Sock> socks) {
         this.id = id;
         this.totalTurns = t;
-        this.currentTurn = t;
+        this.currentTurn = 0;
         this.numPlayers = p;
         this.numSocks = n*2;
         this.socks = (Sock[]) socks.toArray(new Sock[2 * n]);
+        this.requestedSocks = new ArrayDeque<RequestedSock>();
+        this.requestsReceivedCounter = 0;
 
         this.rankedPairs = new PriorityQueue<SockPair>();
         this.offerSocks = new HashMap<Sock, Integer>();
@@ -283,7 +292,10 @@ public class Player extends exchange.sim.Player {
 			lastTransactions		-		All completed transactions last round.
 		 */
         
-        currentTurn--;
+        currentTurn++;
+        if (DEBUG) {
+            System.out.printf("-> Group 2 number of requests received: %d (turn %d)\n", requestsReceivedCounter, currentTurn);
+        }
         if (this.shouldRecomputePairing) {
             rankedPairs.clear();
             pairAlgo();
@@ -295,6 +307,53 @@ public class Player extends exchange.sim.Player {
         for (double d : this.offerSocks.values()) {
             sum += d;
         }
+
+        //------------------------------------------------------------------------------------------------------------
+        // Market value
+        //------------------------------------------------------------------------------------------------------------
+
+        // Get all transacted socks, since we will ignore them when recording the requests.
+        List<Sock> transactedSocks = new ArrayList<Sock>();
+        for (Transaction t : lastTransactions) {
+            transactedSocks.add(t.getFirstSock());
+            transactedSocks.add(t.getSecondSock());
+        }
+
+        // Update the requested socks so far.
+        int rank;
+        for (int i = 0; i < lastRequests.size(); ++i) {
+            Request request = lastRequests.get(i);
+            if (i == id || request == null) continue; // Skip if it's our own request or null.
+
+            if(request.getFirstID() >= 0 && request.getFirstRank() >= 0) {
+                if (request.getFirstID() == id) requestsReceivedCounter++;
+                rank = request.getFirstRank();
+                Sock first = lastOffers.get(request.getFirstID()).getSock(rank);
+                if (!transactedSocks.contains(first)) {
+                    RequestedSock firstRequested = new RequestedSock(first, i, rank, currentTurn);
+                    requestedSocks.addFirst(firstRequested);
+                }
+            }
+
+            if(request.getSecondID() >= 0 && request.getSecondRank() >= 0) {
+                if (request.getSecondID() == id) requestsReceivedCounter++;
+                rank = request.getSecondRank();
+                Sock second = lastOffers.get(request.getSecondID()).getSock(request.getSecondRank());
+                if (!transactedSocks.contains(second)) {
+                    RequestedSock secondRequested = new RequestedSock(second, i, rank, currentTurn);
+                    requestedSocks.addFirst(secondRequested);
+                }
+            }
+
+            // Discard all the requested socks "older" than the turns threshold.
+            RequestedSock oldestRequested;
+            do {
+                oldestRequested = requestedSocks.pollLast();
+            }
+            while( (currentTurn - oldestRequested.turn) > REQUESTED_TURNS_THRESHOLD);
+            requestedSocks.addLast(oldestRequested);
+        }
+
 
         //------------------------------------------------------------------------------------------------------------
         // Offering by threshold.
@@ -327,40 +386,84 @@ public class Player extends exchange.sim.Player {
 //        return new Offer(this.socks[offeringS1],this.socks[offeringS2]);
 
         //------------------------------------------------------------------------------------------------------------
-        // Getting the worst paired socks.
+        // Getting socks in the worst pairs and with high market value.
         //------------------------------------------------------------------------------------------------------------
 
         List<SockPair> poppedPair = new ArrayList<>();
-        SockPair maxPair = rankedPairs.poll();
-        poppedPair.add(maxPair);
 
-        int bound = 1;
-        if(numPlayers == 10) {
-            bound = 3;
-        } else if(numPlayers == 100) {
-            bound = 10;
-        } else if(numPlayers == 1000){
+        int bound = this.numSocks/2;
+        if (numSocks >= 100) {
+            bound = 20;
+        } else if(numSocks >= 1000) {
             bound = 50;
         }
+
+        Sock maxMarketValueSock = rankedPairs.peek().s1;  // Default for the first turn, when there are no requested socks yet.
+        double maxMarketValue = 0.0;
+        double[] maxMarketValuePerPlayer = new double[numPlayers];
+
+        Sock secondMaxMarketValueSock = rankedPairs.peek().s2;
+        double secondMaxMarketValue = 0.0;
+        double[] secondMarketValuePerPlayer = new double[numPlayers];
 
         for(int i=0; i<bound; i++) {
             SockPair next = rankedPairs.poll();
             poppedPair.add(next);
-            if (next.timesOffered <= maxPair.timesOffered-3 ||
-                    (next.distance > maxPair.distance && next.timesOffered <= maxPair.timesOffered)) {
-                maxPair = next;
+
+            // Market value continuation. Now we have to compute the market value of each of the socks.
+            // Note: If this becomes a bottleneck in terms of efficiency, I have ideas about how to improve it.
+            double s1MarketValue = 0.0;
+            double[] s1MarketValueByPlayer = new double[numPlayers];
+            double s2MarketValue = 0.0;
+            double[] s2MarketValueByPlayer = new double[numPlayers];
+            for (RequestedSock rs : requestedSocks) {
+                // Right now we are allowing a sock to be compared with itself, which will give it a high market value
+                // if it has been requested (since the distance will be minimal). To disallow this check that !rs.equals(next.s1).
+                s1MarketValue += rs.getPartialMarketValue(next.s1, currentTurn);
+                s1MarketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next.s1, currentTurn);
+                s2MarketValue += rs.getPartialMarketValue(next.s2, currentTurn);
+                s2MarketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next.s2, currentTurn);
+            }
+
+            if (s1MarketValue > maxMarketValue) {
+                secondMaxMarketValue = maxMarketValue;
+                secondMaxMarketValueSock = maxMarketValueSock;
+                maxMarketValue = s1MarketValue;
+                maxMarketValueSock = next.s1;
+                maxMarketValuePerPlayer = s1MarketValueByPlayer;
+            } else if (s1MarketValue > secondMaxMarketValue) {
+                secondMaxMarketValue = s1MarketValue;
+                secondMaxMarketValueSock = next.s1;
+                secondMarketValuePerPlayer = s1MarketValueByPlayer;
+            }
+
+            if (s2MarketValue > maxMarketValue) {
+                secondMaxMarketValue = maxMarketValue;
+                secondMaxMarketValueSock = maxMarketValueSock;
+                maxMarketValue = s2MarketValue;
+                maxMarketValueSock = next.s2;
+                maxMarketValuePerPlayer = s2MarketValueByPlayer;
+            } else if (s2MarketValue > secondMaxMarketValue) {
+                secondMaxMarketValue = s2MarketValue;
+                secondMaxMarketValueSock = next.s2;
+                secondMarketValuePerPlayer = s2MarketValueByPlayer;
             }
         }
         for(SockPair pair : poppedPair) {
             rankedPairs.add(pair);
         }
 
+        // We need to find them individually since they might be part of the same pair.
+        offeringS1 = Arrays.asList(socks).indexOf(maxMarketValueSock);
+        offeringS2 = Arrays.asList(socks).indexOf(secondMaxMarketValueSock);
 
-        offeringS1 = Arrays.asList(socks).indexOf(maxPair.s1);
-        offeringS2 = offeringS1+1;
-        maxPair.timesOffered++;
+        offeringS1MarketValue = maxMarketValue;
+        offeringS2MarketValue = secondMaxMarketValue;
 
-        return new Offer(maxPair.s1,maxPair.s2);
+        offeringS1MarketValuePerPlayer = maxMarketValuePerPlayer;
+        offeringS2MarketValuePerPlayer = secondMarketValuePerPlayer;
+
+        return new Offer(maxMarketValueSock, secondMaxMarketValueSock);
     }
 
     @Override
@@ -378,11 +481,8 @@ public class Player extends exchange.sim.Player {
         try {
             lastOffers = offers;
 
-            double maxDistanceReduction = getMaxReductionInPairDistance(this.socks[offeringS1]);
             int firstId = -1;
             int firstRank = -1;
-
-            double secondMaxDistanceReduction = getMaxReductionInPairDistance(this.socks[offeringS2]);
             int secondId = -1;
             int secondRank = -1;
 
