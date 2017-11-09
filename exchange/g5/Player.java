@@ -24,7 +24,7 @@ public class Player extends exchange.sim.Player {
 	private static final int BLUE = 2;
 	
 	private int id1, id2, id;
-	private int p;
+	private int p, t, turn;
     private Sock[] socks;
     private SockPair[] pairs;
     private ArrayList<ArrayList<Sock>> globalInfo;
@@ -32,7 +32,9 @@ public class Player extends exchange.sim.Player {
 	private int noTradeCount;
 	private int tradeID;
 	private int tradingPairs;
-
+	
+	boolean offerMade;
+	int offerMadeById;
 	
     private class SockPair{
     	public int id1;
@@ -67,67 +69,98 @@ public class Player extends exchange.sim.Player {
     	return totalDistance;
     }
     
-    public SockPair[] generatePairs(Sock[] socks){
-    	ArrayList<SockPair> allPairs = new ArrayList<SockPair>();
-    	for(int i = 0; i < socks.length; i++){
-    		for(int j = i+1; j < socks.length; j++){
-    			allPairs.add(new SockPair(i,j, socks[i], socks[j]));
-    		}
+    public SockPair[] generatePairs(Sock[] socks, boolean isblossom, boolean alterOfferId){
+    	SockPair[] pairs = new SockPair[socks.length/2];
+    	if(!isblossom){
+    		ArrayList<SockPair> allPairs = new ArrayList<SockPair>();
+        	for(int i = 0; i < socks.length; i++){
+        		for(int j = i+1; j < socks.length; j++){
+        			allPairs.add(new SockPair(i,j, socks[i], socks[j]));
+        		}
+        	}
+        	
+        	allPairs.sort((p1,p2)->{
+        		return Double.compare(p1.distance,p2.distance);
+        	});
+        	
+        	int j = 0;
+        	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
+        	
+        	for(int i = 0; i < pairs.length; i++){
+        		pairs[i] = allPairs.get(j);
+        		
+        		pairedSocks.add(pairs[i].id1);
+        		pairedSocks.add(pairs[i].id2);
+        		while(j != allPairs.size() && (pairedSocks.contains(allPairs.get(j).id1) | pairedSocks.contains(allPairs.get(j).id2)))
+        			j++;
+        	}
     	}
-    	
-    	allPairs.sort((p1,p2)->{
-    		return Double.compare(p1.distance,p2.distance);
-    	});
+    	else{
+    		int n = socks.length;
+        	float[][] allPairs = new float[2*n*(2*n-1)/2][3];
+        	
+        	int k = 0;
+        	for(int i = 0; i < socks.length; i++){
+        		for(int j = i+1; j < socks.length; j++){
+        			allPairs[k] = new float[]{i,j, -(float)(socks[i].distance(socks[j]))};
+        			k++;
+        		}
+        	}
+        	
+        	int[] result = new Blossom(allPairs,true).maxWeightMatching();
+        	ArrayList<SockPair> pairsList = new ArrayList<SockPair>();
+        	
+        	int j = 0;
+        	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
+        	
+        	for(int i = 0; i < pairs.length; i++){
+        		pairsList.add(new SockPair(j,result[j],socks[j],socks[result[j]]));
+        		
+        		pairedSocks.add(j);
+        		pairedSocks.add(result[j]);
+        		while(j != result.length && (pairedSocks.contains(j) | pairedSocks.contains(result[j])))
+        			j++;
+        	}
+        	
+        	pairsList.sort((p1,p2)->{
+        		return Double.compare(p1.distance,p2.distance);
+        	});
+        	
+        	for(int i = 0; i < pairs.length; i++){
+        		pairs[i] = pairsList.get(i);
+        	}
+    	}
     	
     	int j = 0;
-    	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
-    	SockPair[] pairs = new SockPair[socks.length/2];
-    	
-    	for(int i = 0; i < pairs.length; i++){
-    		pairs[i] = allPairs.get(j);
-    		
-    		pairedSocks.add(pairs[i].id1);
-    		pairedSocks.add(pairs[i].id2);
-    		while(j != allPairs.size() && (pairedSocks.contains(allPairs.get(j).id1) | pairedSocks.contains(allPairs.get(j).id2)))
-    			j++;
-    	}
-//    	int n = socks.length;
-//    	float[][] allPairs = new float[2*n*(2*n-1)/2][3];
-//    	
-//    	int k = 0;
-//    	for(int i = 0; i < socks.length; i++){
-//    		for(int j = i+1; j < socks.length; j++){
-//    			allPairs[k] = new float[]{i,j, -(float)(socks[i].distance(socks[j]))};
-//    			k++;
-//    		}
-//    	}
-//    	
-////    	System.out.println("Before Blossom");    	
-//    	int[] result = new Blossom(allPairs,true).maxWeightMatching();
-////    	System.out.println("After Blossom");
-//    	SockPair[] pairs = new SockPair[socks.length/2];
-//    	ArrayList<SockPair> pairsList = new ArrayList<SockPair>();
-//    	
-//    	int j = 0;
-//    	ArrayList<Integer> pairedSocks = new ArrayList<Integer>();
-//    	
-//    	for(int i = 0; i < pairs.length; i++){
-//    		pairsList.add(new SockPair(j,result[j],socks[j],socks[result[j]]));
-//    		
-//    		pairedSocks.add(j);
-//    		pairedSocks.add(result[j]);
-//    		while(j != result.length && (pairedSocks.contains(j) | pairedSocks.contains(result[j])))
-//    			j++;
-//    	}
-//    	
-//    	pairsList.sort((p1,p2)->{
-//    		return Double.compare(p1.distance,p2.distance);
-//    	});
-//    	
-//    	for(int i = 0; i < pairs.length; i++){
-//    		pairs[i] = pairsList.get(i);
-//    	}
-    		
+        Sock[] copy = Arrays.copyOf(socks,socks.length);
+        
+        int tempId1 = 0, tempId2 = 0;
+        for(int i = 0; i < pairs.length; i++){
+        	if(pairs[i].id1 == id1){
+        		tempId1 = j;
+        	}
+        	else if(pairs[i].id2 == id1){
+        		tempId1 = j + 1;
+        	}
+        	if(pairs[i].id1 == id2){
+        		tempId2 = j;
+        	}
+        	else if(pairs[i].id2 == id2){
+        		tempId2 = j + 1;
+        	}
+        	
+        	socks[j] = copy[pairs[i].id1];
+        	socks[j+1] = copy[pairs[i].id2];
+        	pairs[i].id1 = j;
+        	pairs[i].id2 = j+1;
+        	j = j + 2;
+        } 
+        
+        if(alterOfferId){
+        	id1 = tempId1;
+            id2 = tempId2;
+        }
+    			
     	return pairs;
     }
     
@@ -136,19 +169,11 @@ public class Player extends exchange.sim.Player {
         this.id = id;
         this.socks = (Sock[]) socks.toArray(new Sock[2 * n]);
         this.pairs = new SockPair[n];
-        this.pairs = generatePairs(this.socks);
-        int k = 0;
-        Sock[] copy = Arrays.copyOf(this.socks,this.socks.length);
-        
-        for(int i = 0; i < pairs.length; i++){
-        	this.socks[k] = copy[pairs[i].id1];
-        	this.socks[k+1] = copy[pairs[i].id2];
-        	pairs[i].id1 = k;
-        	pairs[i].id2 = k+1;
-        	k = k + 2;
-        }
+        this.pairs = generatePairs(this.socks,false,true);
         
         this.p = p;
+        this.t = t;
+        this.turn = 0;
         
         this.globalInfo = new ArrayList<ArrayList<Sock>>();
         for(int i = 0; i < p; i++){
@@ -166,6 +191,8 @@ public class Player extends exchange.sim.Player {
 		this.tradeHappened = false;
 		this.tradeID = pairs.length-1;
 		
+		offerMade = false;
+		
     }
 
     @Override
@@ -174,19 +201,7 @@ public class Player extends exchange.sim.Player {
 			lastRequests.get(i)		-		Player i's request last round
 			lastTransactions		-		All completed transactions last round.
 		 */
-    	pairs = generatePairs(socks);
-        int j = 0;
-        Sock[] copy = Arrays.copyOf(socks,socks.length);
-        
-        for(int i = 0; i < pairs.length; i++){
-        	socks[j] = copy[pairs[i].id1];
-        	socks[j+1] = copy[pairs[i].id2];
-        	pairs[i].id1 = j;
-        	pairs[i].id2 = j+1;
-        	j = j + 2;
-        } 
-    	
-    	
+    	turn++;
     	
     	if(tradeHappened){
 			 noTradeCount = 0;
@@ -202,8 +217,30 @@ public class Player extends exchange.sim.Player {
 			noTradeCount = 0;
 		}
 		
-//    	id1 = pairs[tradeID].id1;
-//    	id2 = pairs[tradeID].id2;
+		if(noTradeCount == 1){
+			if(lastRequests != null){
+				for(int i = 0; i < lastRequests.size(); i++){
+					Request r = lastRequests.get(i);
+					if(r != null && (r.getFirstID() == this.id | r.getSecondID() == this.id)){
+						offerMade = true;
+						offerMadeById = i;
+						break;
+					}
+				}
+			}
+		}
+		
+		if(offerMade){
+			return new Offer(socks[id1],socks[id2]);
+		}
+		
+		if(turn <= 5){
+			int numPairs = pairs.length;
+			id1 = pairs[numPairs - 1].id1;
+			id2 = pairs[numPairs - 1].id2;
+			return new Offer(socks[id1],socks[id2]);
+		}
+		
 		
 		int[][] maxMinSocks = getMaxMinSocks();
     	int required = maxMinSocks[id][0];
@@ -226,22 +263,52 @@ public class Player extends exchange.sim.Player {
     		return new Offer(socks[id1],socks[id2]);
     	}
     	
-    	index = random.nextInt(attractivePlayers.size());
-    	int offerColor1 = maxMinSocks[attractivePlayers.get(index)][0];
-       	do{
-    		index2 = random.nextInt(attractivePlayers.size());
-    		if(attractivePlayers.size() == 1)
-    			break;
-    	}while(index2 == index);
-    	int offerColor2 = maxMinSocks[attractivePlayers.get(index2)][0];
     	
-    	id1 = getRandomColoredSock(offerColor1);
-    	do{
-    	id2 = getRandomColoredSock(offerColor2);
-    	}while(id2 == id1);
+    	ArrayList<Integer> offerColors = new ArrayList<Integer>();
+    	for(int i = 0; i < attractivePlayers.size(); i++){
+    		int offerColor = maxMinSocks[attractivePlayers.get(i)][0];
+    		if(!offerColors.contains(offerColor)){
+    			offerColors.add(offerColor);
+    		}
+    	}
+    	ArrayList<Integer> socksToOffer = new ArrayList<Integer>();
+    	for(int i = 0; i < socks.length; i++){
+    		if(offerColors.contains(getMaxColor(socks[i]))){
+    			socksToOffer.add(i);
+    		}
+    	}
+    	double maxSockDistance1 = 0, maxSockDistance2 = 0;
+    	int maxSockIndex1 = 0, maxSockIndex2 = 0;
+    	for(Integer i: socksToOffer){
+    		double distance = findPairDistanceForSock(i);
+    		if(distance > maxSockDistance2){
+    			maxSockDistance2 = distance;
+    			maxSockIndex2 = i;
+    		}
+    		if(maxSockDistance2 > maxSockDistance1){
+    			double tempDistance = maxSockDistance2;
+    			int tempIndex = maxSockIndex2;
+    			
+    			maxSockDistance2 = maxSockDistance1;
+    			maxSockIndex2 = maxSockIndex1;
+    			
+    			maxSockDistance1 = tempDistance;
+    			maxSockIndex1 = tempIndex;
+    		}
+    	}
+    	id1 = maxSockIndex1;
+    	id2 = maxSockIndex2;
 		
-//    	return new Offer(sock1,sock2);
     	return new Offer(socks[id1],socks[id2]);
+    }
+    
+    public double findPairDistanceForSock(int index){
+    	if(index % 2 == 0){
+    		return socks[index].distance(socks[index + 1]);
+    	}
+    	else{
+    		return socks[index].distance(socks[index - 1]);
+    	}
     }
     
     public int getRandomColoredSock(int color){
@@ -309,6 +376,18 @@ public class Player extends exchange.sim.Player {
     	return maxMinSocks;
     }
     
+    public int getMaxColor(Sock sock){
+    	if(sock.R >= Math.max(sock.G,sock.B)){
+			return RED;
+		}
+		else if(sock.G >= Math.max(sock.R,sock.B)){
+			return GREEN;
+		}
+		else{
+			return BLUE;
+		}
+    }
+    
     public void updateGlobalInfo(List<Transaction> lastTransactions){
     	if(lastTransactions != null){
     		for(Transaction t: lastTransactions){
@@ -332,15 +411,6 @@ public class Player extends exchange.sim.Player {
         			globalInfo.get(secondID).add(firstSock);
     		}
     	}
-//    	for(int i = 0; i < offers.size(); i++){
-//    		if(i == id) continue;
-//    		Offer offer = offers.get(i);
-//    		
-//    		if(offer.getFirst() != null && !globalInfo.get(i).contains(offer.getFirst()))
-//    			globalInfo.get(i).add(offer.getFirst());
-//    		if(offer.getSecond() != null && !globalInfo.get(i).contains(offer.getSecond()))
-//    			globalInfo.get(i).add(offer.getSecond());
-//    	}
     }
     
     public int findIndexOfSock(ArrayList<Sock> socks,Sock sock){
@@ -360,8 +430,9 @@ public class Player extends exchange.sim.Player {
 			offer.getFirst()				-		equivalent to offer.getSock(1)
 			offer.getSecond()				-		equivalent to offer.getSock(2)
 			Remark: For Request object, rank ranges between 1 and 2
-		 */
-//    	updateGlobalInfo(offers);
+		 */    	
+    	int[][] maxMinSocks = getMaxMinSocks();
+    	int maxCluster = maxMinSocks[id][0];
     	
     	int firstID = -1;
     	int firstRank = -1;
@@ -369,9 +440,25 @@ public class Player extends exchange.sim.Player {
     	int secondID = -1;
     	int secondRank = -1;
     	double minTotalDistance2 = findTotalDistance(pairs);
-//		System.out.println("min1: "+minTotalDistance1);
-//		System.out.println("min2: "+minTotalDistance2);
-
+    	    	
+    	if(offerMade){
+    		offerMade = false;
+        	
+        	Sock first = offers.get(offerMadeById).getFirst();
+    		Sock second = offers.get(offerMadeById).getSecond();
+        	
+    		double avgFirstDistance = findAverageDistanceForNewSock(first, true);
+    		double avgSecondDistance = findAverageDistanceForNewSock(second, true);
+    		
+    		if(maxMinSocks[offerMadeById][1] == maxCluster){
+	    		if(avgFirstDistance + avgSecondDistance <= 2*findTotalDistance(pairs)){
+	    			if(turn == t){
+	    				pairs = generatePairs(socks, true, true);
+	    			}
+	    			return new Request(offerMadeById,1,offerMadeById,2);
+	    		}
+    		}
+       	}
 		
     	for(int i = 0; i < offers.size(); i++){
     		if(i == id)
@@ -382,10 +469,20 @@ public class Player extends exchange.sim.Player {
     		Sock first = offer.getFirst();
     		Sock second = offer.getSecond();
     		
-    		double avgFirstDistance = findAverageDistanceForNewSock(first);
-//			System.out.println("avg1: "+avgFirstDistance);
-    		double avgSecondDistance = findAverageDistanceForNewSock(second);
-//    		System.out.println("avg2: "+avgSecondDistance);
+    		double avgFirstDistance, avgSecondDistance;
+    		if(first == null | (first != null && getMaxColor(first) != maxCluster)){
+    			avgFirstDistance = minTotalDistance2 + 1;
+    		}
+    		else{
+    			avgFirstDistance = findAverageDistanceForNewSock(first, false);
+    		}
+    		
+    		if(second == null | (second != null && getMaxColor(second) != maxCluster)){
+    			avgSecondDistance = minTotalDistance2 + 1;
+    		}
+    		else{
+        		avgSecondDistance = findAverageDistanceForNewSock(second, false);
+    		}
 
     		if(avgFirstDistance <= minTotalDistance1){
     			secondID = firstID;
@@ -417,23 +514,28 @@ public class Player extends exchange.sim.Player {
     			minTotalDistance2 = avgSecondDistance;
     		}
     	}
+    	
+    	if(turn == t){
+			pairs = generatePairs(socks, true, true);
+		}
+    	
     	return new Request(firstID,firstRank,secondID,secondRank);
     }
     
-    public double findAverageDistanceForNewSock(Sock sock){
+    public double findAverageDistanceForNewSock(Sock sock, boolean isTestPrevOffer){
     	Sock[] sockAtId1 = Arrays.copyOf(socks,socks.length);
 
-    	//System.out.println("before change "+sockAtId1[id1]);
 		sockAtId1[id1] = sock;
-		//System.out.println(sockAtId1[id1]);
 		
 		Sock[] sockAtId2 = Arrays.copyOf(socks,socks.length);
 		sockAtId2[id2] = sock;
-		//System.out.println(sock);
-		//System.out.println(sockAtId2[id2]);
 		
-		SockPair[] sockAtId1Pairs = generatePairs(sockAtId1);
-		SockPair[] sockAtId2Pairs = generatePairs(sockAtId2);
+		boolean isblossom = false;
+		if(turn % 20 == 0 && !isTestPrevOffer){
+			isblossom = true;
+		}
+		SockPair[] sockAtId1Pairs = generatePairs(sockAtId1,isblossom, false);
+		SockPair[] sockAtId2Pairs = generatePairs(sockAtId2,isblossom, false);
 		
 		double sockAtId1Distance = findTotalDistance(sockAtId1Pairs);
 		double sockAtId2Distance = findTotalDistance(sockAtId2Pairs);
@@ -456,35 +558,27 @@ public class Player extends exchange.sim.Player {
         int rank;
         Sock newSock;
         if (transaction.getFirstID() == id) {
-        	System.out.println("Inside if");
             rank = transaction.getFirstRank();
             newSock = transaction.getSecondSock();
         } else {
-        	System.out.println("Inside else");
             rank = transaction.getSecondRank();
             newSock = transaction.getFirstSock();
         }
         if (rank == 1){
-        	System.out.println("Inside rank if");
         	socks[id1] = newSock;
         }
         else{
-        	System.out.println("Inside rank else");
         	socks[id2] = newSock;
         }
         
 		tradeHappened = true;
-//        pairs = generatePairs(socks);
-//        int j = 0;
-//        Sock[] copy = Arrays.copyOf(socks,socks.length);
-//        
-//        for(int i = 0; i < pairs.length; i++){
-//        	socks[j] = copy[pairs[i].id1];
-//        	socks[j+1] = copy[pairs[i].id2];
-//        	pairs[i].id1 = j;
-//        	pairs[i].id2 = j+1;
-//        	j = j + 2;
-//        }
+		
+		if(turn == t){
+			pairs = generatePairs(socks, true, true);
+		}
+		else{
+			pairs = generatePairs(socks, false, true);
+		}
     }
 
     @Override

@@ -35,14 +35,11 @@ public class SockHelper {
                 continue;
             }
         }
-        //System.out.println(myTree.size());
         ArrayList<Sock> ans = new ArrayList<Sock>();
         HashMap<Sock,Integer> isPaired = new HashMap<Sock, Integer>();
         for(int i=0;i<socks.size();i++){
-            //System.out.println(i);
             Sock curr = socks.get(i);
             if(isPaired.get(curr)!=null){
-                System.out.println(curr);
                 continue;
             }
             double[] colors = {curr.R,curr.G,curr.B};
