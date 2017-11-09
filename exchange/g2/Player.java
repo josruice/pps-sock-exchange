@@ -97,30 +97,36 @@ public class Player extends exchange.sim.Player {
    }
 
    private Sock[] pairGreedily(Sock[] socks, boolean updateRankedPairs) {
-       PriorityQueue<SockPair> queue = new PriorityQueue<SockPair>();
-       for (int i = 0; i < socks.length ; i++){
-           for (int j = 0; j < i; j++){
-               queue.add(new SockPair(socks[i],socks[j]));
-           }
-       }
+       PriorityQueue<SockPair> original = new PriorityQueue<SockPair>();
+        for (int i = 0; i < socks.length ; i++){
+            for (int j = 0; j < i; j++){
+                original.add(new SockPair(socks[i],socks[j]));
+            }
+        }
 
-       HashSet<Sock> matched = new HashSet<Sock>();
-       while(matched.size() < socks.length ){
-           SockPair pair = queue.poll();
+        PriorityQueue<SockPair> queue = new PriorityQueue<SockPair>(original.size(), Collections.reverseOrder());
+        queue.addAll(original);
+
+        HashSet<Sock> matched = new HashSet<Sock>();
+        while( matched.size() < socks.length ){
+            SockPair pair = queue.poll();
             if(pair != null) {
                 if(!matched.contains(pair.s1) && !matched.contains(pair.s2)){
-                     matched.add(pair.s1);
-                     socks[matched.size()-1] = pair.s1;
-                      matched.add(pair.s2);
-                      socks[matched.size()-1] = pair.s2;
-                      if (updateRankedPairs) {
-                          this.rankedPairs.add(pair);
-                      }
+                    matched.add(pair.s1);
+                    socks[matched.size()-1] = pair.s1;
+                    matched.add(pair.s2);
+                    socks[matched.size()-1] = pair.s2;
+                    if (updateRankedPairs) {
+                        this.rankedPairs.add(pair);
+                    }
                 }
             }
-       }
-
-       return socks;
+        }
+        if (updateRankedPairs) {
+            this.threshold = 10;
+            updateOfferSocks(this.threshold);
+        }
+        return socks;
    }
 
     public Sock[] pairBlossom(Sock[] socks, boolean updateRankedPairs) {
