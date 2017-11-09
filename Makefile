@@ -1,5 +1,5 @@
 n=1000
-t=100
+t=2000
 p=g2
 tl=100000
 
@@ -13,4 +13,4 @@ clean:
 	rm exchange/*/*.class
 
 verbose:
-	java exchange.sim.Simulator -p ${p} g0 -n ${n} -t ${t} -tl ${tl} -v
+	java exchange.sim.Simulator -p g1 g2 g1 g1 g1 g1 -n ${n} -t ${t} -tl ${tl} -v
