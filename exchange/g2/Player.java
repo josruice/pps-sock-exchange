@@ -65,7 +65,7 @@ public class Player extends exchange.sim.Player {
         this.THRESHOLD = createThreshold();
         this.threshold = 95;
 
-        if(numSocks > 100) {
+        if(numSocks > 200) {
             largeNumSocks = true;
             if(totalTurns < 1000) {
                 CONSIDERED = 200;
