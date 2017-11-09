@@ -344,15 +344,15 @@ public class Player extends exchange.sim.Player {
                     requestedSocks.addFirst(secondRequested);
                 }
             }
-
-            // Discard all the requested socks "older" than the turns threshold.
-            RequestedSock oldestRequested;
-            do {
-                oldestRequested = requestedSocks.pollLast();
-            }
-            while( (currentTurn - oldestRequested.turn) > REQUESTED_TURNS_THRESHOLD);
-            requestedSocks.addLast(oldestRequested);
         }
+
+        // Discard all the requested socks "older" than the turns threshold.
+        RequestedSock oldestRequested;
+        do {
+            oldestRequested = requestedSocks.pollLast();
+        }
+        while(oldestRequested != null && (currentTurn - oldestRequested.turn) > REQUESTED_TURNS_THRESHOLD);
+        if (oldestRequested != null) requestedSocks.addLast(oldestRequested);
 
 
         //------------------------------------------------------------------------------------------------------------
