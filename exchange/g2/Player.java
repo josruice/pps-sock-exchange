@@ -71,7 +71,6 @@ public class Player extends exchange.sim.Player {
             }
         }
 
-//        System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
         pairAlgo();
         if(largeNumSocks) {
             notConsidered = Arrays.copyOfRange(this.socks,0,this.socks.length-CONSIDERED);
@@ -370,16 +369,18 @@ public class Player extends exchange.sim.Player {
         double[] secondMarketValuePerPlayer = new double[numPlayers];
         
         for(Sock next : this.offerSocks.keySet()) {
-            // Market value continuation. Now we have to compute the market value of each of the socks.
-            // Note: If this becomes a bottleneck in terms of efficiency, I have ideas about how to improve it.
             double marketValue = 0.0;
             double[] marketValueByPlayer = new double[numPlayers];
             for (RequestedSock rs : requestedSocks) {
                 // Right now we are allowing a sock to be compared with itself, which will give it a high market value
                 // if it has been requested (since the distance will be minimal). To disallow this check that !rs.equals(next.s1).
-                marketValue += rs.getPartialMarketValue(next, currentTurn);
-                marketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next, currentTurn);
+                if (!rs.equals(next)) {
+                    marketValue += rs.getPartialMarketValue(next, currentTurn);
+                    marketValueByPlayer[rs.playerId] += rs.getPartialMarketValue(next, currentTurn);
+                }
             }
+
+            if(this.offerSocks.get(next) != null) marketValue /= (this.offerSocks.get(next) + 1);
 
             if (marketValue > maxMarketValue) {
                 secondMaxMarketValue = maxMarketValue;
