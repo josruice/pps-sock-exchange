@@ -9,8 +9,6 @@ import exchange.sim.Transaction;
 
 public class Player extends exchange.sim.Player {
 
-    private final boolean DEBUG = true;
-
     /*
         Inherited from exchange.sim.Player:
         Random random   -       Random number generator, if you need it
@@ -27,7 +25,6 @@ public class Player extends exchange.sim.Player {
     private Sock[] socks;
 
     private Deque<RequestedSock> requestedSocks;
-    private final int REQUESTED_TURNS_THRESHOLD = 50; // Requested socks older than this will be discarded from the queue.
     private int requestsReceivedCounter; // Count the number of times our offered socks have been requested to benchmark.
 
     private int currentTurn;
@@ -364,16 +361,6 @@ public class Player extends exchange.sim.Player {
             }
         }
 
-        // Discard all the requested socks "older" than the turns threshold.
-        RequestedSock oldestRequested;
-        do {
-            oldestRequested = requestedSocks.pollLast();
-        }
-        while(oldestRequested != null && (currentTurn - oldestRequested.turn) > REQUESTED_TURNS_THRESHOLD);
-        if (oldestRequested != null) requestedSocks.addLast(oldestRequested);
-
-        List<SockPair> poppedPair = new ArrayList<>();
-
         Sock maxMarketValueSock = null;  // Default for the first turn, when there are no requested socks yet.
         double maxMarketValue = -1;
         double[] maxMarketValuePerPlayer = new double[numPlayers];
@@ -409,6 +396,8 @@ public class Player extends exchange.sim.Player {
         
         // We need to find them individually since they might be part of the same pair.
         List<Sock> temp = Arrays.asList(socks);
+        this.offerSocks.put(maxMarketValueSock, this.offerSocks.get(maxMarketValueSock) + 1);
+        this.offerSocks.put(secondMaxMarketValueSock, this.offerSocks.get(secondMaxMarketValueSock) + 1);
         offeringS1 = temp.indexOf(maxMarketValueSock);
         offeringS2 = temp.indexOf(secondMaxMarketValueSock);
 
@@ -539,7 +528,7 @@ public class Player extends exchange.sim.Player {
                 }
             }
 
-            if(firstId == -1 && singleId == -1) {
+            if(firstId == -1 && singleId == -1 && largeNumSocks==true) {
                 if(++stagnationTracker >= 5) {
                     stagnationTracker = 0;
                     stagnant = true;
