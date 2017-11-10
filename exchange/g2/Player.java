@@ -409,6 +409,8 @@ public class Player extends exchange.sim.Player {
         
         // We need to find them individually since they might be part of the same pair.
         List<Sock> temp = Arrays.asList(socks);
+	this.offerSocks.put(maxMarketValueSock, this.offerSocks.get(maxMarketValueSock) + 1);
+	this.offerSocks.put(secondMaxMarketValueSock, this.offerSocks.get(secondMaxMarketValueSock) + 1);
         offeringS1 = temp.indexOf(maxMarketValueSock);
         offeringS2 = temp.indexOf(secondMaxMarketValueSock);
 
