@@ -14,14 +14,14 @@ def save_float(x):
 def rotate_list(l, x):
     return l[-x:] + l[:-x]
 
-num_pairs = 10
-turnlimit = 20
-timelimit = 10000  # in milliseconds
-players = ['g1', 'g2', 'g0', 'g4', 'g5', 'g6']
-repetition = 50
+num_pairs = 100
+turnlimit = 50
+timelimit = 100000  # in milliseconds
+players = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6']
+repetition = 1
 
 # Generating random seed for each run
-primal_seed = 20171030
+primal_seed = 20171109
 import random
 random.seed(primal_seed)
 seeds = [];
@@ -39,7 +39,7 @@ for p in players:
 
 for run in tqdm(range(repetition)):
     # rotate the player list
-    for k in range(len(players)):
+    for k in tqdm(range(len(players))):
         p = open("tmp.log", "w")
         err = open("err.log", "w")
         players_to_run = rotate_list(players, k)
@@ -68,14 +68,19 @@ for player, scores in results.items():
     initial_scores = scores['initial_scores']
     final_scores = scores['final_scores']
     score_reductions = [ini - fin for fin,ini in zip(final_scores, initial_scores)]
-    print("\n" + player + " scores: ")
-    print("- [Final] Min, max: %d, %d" % (min(final_scores), max(final_scores)))
-    print("- [Final] Median: %.2f" % statistics.median(final_scores))
-    print("- [Final] Average: %.2f" % statistics.mean(final_scores))
-    print("- [Final] Standard deviation: %.2f" % statistics.pstdev(final_scores))
-    print("- [Reduc] Min, max: %d, %d" % (
+    print("\n" + player + " scores: %.2f" % statistics.mean(final_scores))
+    print("  - [Final] Min, max: %d, %d" % (min(final_scores), max(final_scores)))
+    print("  - [Final] Median: %.2f" % statistics.median(final_scores))
+    print("  - [Final] Average: %.2f" % statistics.mean(final_scores))
+    print("  - [Final] Standard deviation: %.2f" % statistics.pstdev(final_scores))
+    print("  - [Reduc] Min, max: %d, %d" % (
         min(score_reductions), max(score_reductions)))
-    print("- [Reduc] Median: %.2f" % statistics.median(score_reductions))
-    print("- [Reduc] Average: %.2f" % statistics.mean(score_reductions))
-    print("- [Reduc] Standard deviation: %.2f" % statistics.pstdev(
+    print("  - [Reduc] Median: %.2f" % statistics.median(score_reductions))
+    print("  - [Reduc] Average: %.2f" % statistics.mean(score_reductions))
+    print("  - [Reduc] Standard deviation: %.2f" % statistics.pstdev(
         score_reductions))
+
+print("\n\n### Summary (averaged final values):")
+for player, scores in results.items():
+    final_scores = scores['final_scores']
+    print(player + " scores: %.2f" % statistics.mean(final_scores))

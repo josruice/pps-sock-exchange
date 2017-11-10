@@ -71,7 +71,7 @@ public class Player extends exchange.sim.Player {
             }
         }
 
-        System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
+//        System.out.println("Initial embarrassment for player "+ id+ ": "+getEmbarrasment());
         pairAlgo();
         if(largeNumSocks) {
             notConsidered = Arrays.copyOfRange(this.socks,0,this.socks.length-CONSIDERED);
@@ -463,7 +463,8 @@ public class Player extends exchange.sim.Player {
                     embarrasmentExchangingId2ForS1 = singleExchangeEmbarrasments.get(s1).get(sock2);
                     if (embarrasmentExchangingId2ForS1 > currentEmbarrasment) continue;
 
-                    avgEmbarrasment = (embarrasmentExchangingId1ForS1 + embarrasmentExchangingId2ForS1)/2;
+                    // Rank 1 sock has a higher chance to be traded, so the average has to be weighted
+                    avgEmbarrasment = (2*embarrasmentExchangingId1ForS1 + embarrasmentExchangingId2ForS1)/3;
                     if (avgEmbarrasment < minSingleEmbarrasment) {
                         minSingleEmbarrasment = avgEmbarrasment;
                         if(largeNumSocks) {
@@ -509,9 +510,9 @@ public class Player extends exchange.sim.Player {
                                embarrasmentExchangingId1AndId2 = getEmbarrasment(pairAlgo(socksNoId1NorId2));
 
                             if (embarrasmentExchangingId1AndId2 > currentEmbarrasment) continue;
-                            avgEmbarrasment = (embarrasmentExchangingId1ForS1 + embarrasmentExchangingId1ForS2 +
+                            avgEmbarrasment = (2*embarrasmentExchangingId1ForS1 + 2*embarrasmentExchangingId1ForS2 +
                                     embarrasmentExchangingId2ForS1 + embarrasmentExchangingId2ForS2 +
-                                    embarrasmentExchangingId1AndId2) / 5;
+                                    embarrasmentExchangingId1AndId2) / 7;
                             if (avgEmbarrasment < minPairEmbarrasment) {
                                 minPairEmbarrasment = avgEmbarrasment;
                                 firstId = i;
