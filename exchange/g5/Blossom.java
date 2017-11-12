@@ -837,15 +837,12 @@ public class Blossom {
     /* Compute a maximum-weighted matching in the general undirected
     weighted graph given by "edges".  If "maxcardinality" is true,
     only maximum-cardinality matchings are considered as solutions.
-
     Edges is a sequence of tuples (i, j, wt) describing an undirected
     edge between vertex i and vertex j with weight wt.  There is at most
     one edge between any two vertices; no vertex has an edge to itself.
     Vertices are identified by consecutive, non-negative integers.
-
     Return a list "mate", such that mate[i] == j if vertex i is
     matched to vertex j, and mate[i] == -1 if vertex i is not matched.
-
     This function takes time O(n ** 3). */
     public int[] maxWeightMatching() {
         // Deal swiftly with empty graphs.

@@ -42,6 +42,10 @@ public class Player extends exchange.sim.Player {
     private int playerCloseToOffer;
     private Set<Integer> playersWithInterest = new HashSet<Integer>();
 
+    private int transactionsCount;
+
+
+    private Set<Sock> excludedSocks;
 
     @Override
     public void init(int id, int n, int p, int t, List<Sock> socks) {
@@ -57,6 +61,7 @@ public class Player extends exchange.sim.Player {
 
         lastOffers = null;
         lastTradedSocks = new HashSet<Sock>();
+        excludedSocks = new HashSet<Sock>();
         lastUnfulfilledRequests = new HashMap<Sock, Integer>();
         playersWithInterest = new HashSet<Integer>();
     }
@@ -68,12 +73,9 @@ public class Player extends exchange.sim.Player {
             lastTransactions        -       All completed transactions last round.
         */
 
-
-        /*
-        if(t % 3 == 0) {
-            this.lastUnfulfilledRequests.clear();
+        if(t % 10 == 0) {
+            excludedSocks.clear();
         }
-        */
 
         playersWithInterest.clear();
         Set<Integer> interestingPlayers = new HashSet<Integer>();
@@ -138,16 +140,16 @@ public class Player extends exchange.sim.Player {
             }
         }
 
-        if(this.no_txn % 3 != 2) {
+        if(this.no_txn % 4 != 3) {
             //Use Blossom method to pair up socks
             
             double minDist1 = 1000;
             int minTimesOffered = 1000;
             int minId1 = -1;
 
-            for(int i = Math.max(0, pairs.length - 1 - this.no_txn); i < pairs.length; i++) {
+            for(int i = pairs.length - 1; i >= Math.max(0, pairs.length - 1 - this.no_txn); i--) {
                 for(Sock s : lastUnfulfilledRequests.keySet()) {
-
+                    if(excludedSocks.contains(s)) continue;
                     if(s.distance(pairs[i].u) == 0 || s.distance(pairs[i].v) == 0 || s.distance(pairs[i].u) + s.distance(pairs[i].v) < minDist1 && pairs[i].timesOffered <= minTimesOffered) {
                         playerCloseToOffer = lastUnfulfilledRequests.get(s);
                         minId1 = 2*i;
@@ -216,8 +218,8 @@ public class Player extends exchange.sim.Player {
             }
 
             //Get the farthest 2 socks
-            int maxid1 = socks.length - socks.length/3;
-            int maxid2 = socks.length - socks.length/3 + 1;
+            int maxid1 = socks.length - socks.length/4;
+            int maxid2 = socks.length - socks.length/4 + 1;
             this.max_dist1 = median.distance(socks[maxid1]);
             this.max_dist2 = median.distance(socks[maxid2]);
 
@@ -225,12 +227,13 @@ public class Player extends exchange.sim.Player {
                 double tmp = this.max_dist2;
                 this.max_dist2 = this.max_dist1;
                 this.max_dist1 = tmp;
-                maxid1 = socks.length - socks.length/3 + 1;
-                maxid2 = socks.length - socks.length/3;
+                maxid1 = socks.length - socks.length/4 + 1;
+                maxid2 = socks.length - socks.length/4;
             }
 
-            for(int i = socks.length - socks.length/3 + 2; i < socks.length; i++) {
-                boolean interest = (lastOffers.get(id).getFirst() != socks[i] && lastOffers.get(id).getSecond() != socks[i]) || lastUnfulfilledRequests.containsKey(socks[i]);
+            for(int i = socks.length - socks.length/4 + 2; i < socks.length; i++) {
+                if(excludedSocks.contains(socks[i])) continue;
+                boolean interest = lastOffers == null || (lastOffers.get(id).getFirst() != socks[i] && lastOffers.get(id).getSecond() != socks[i]) || lastUnfulfilledRequests.containsKey(socks[i]);
                 if (median.distance(socks[i]) > this.max_dist1 && interest) {
                     this.max_dist2 = this.max_dist1;
                     this.max_dist1 = median.distance(socks[i]);
@@ -272,20 +275,22 @@ public class Player extends exchange.sim.Player {
         int min2 = -1;
         int rank1 = -1;
         int rank2 = -1;
-        //Sock mean = getMeanSock();
         double curMin1 = this.embarrassment;
         double curMin2 = curMin1;
         for (int i = 0; i < offers.size(); i++) {
             if (i == id) continue;
 
             // Find averge resulting embarassement
-            //double firstEmbarassment = (updatedEmbarassment(offers.get(i).getFirst(), id1) + updatedEmbarassment(offers.get(i).getFirst(), id2))/2;
-            //double secondEmbarassment = (updatedEmbarassment(offers.get(i).getSecond(), id1) + updatedEmbarassment(offers.get(i).getSecond(), id2))/2;
+            double firstEmbarassment, secondEmbarassment;
+            if(n < 20) {
+                firstEmbarassment = (updatedEmbarassment(offers.get(i).getFirst(), id1) + updatedEmbarassment(offers.get(i).getFirst(), id2))/2;
+                secondEmbarassment = (updatedEmbarassment(offers.get(i).getSecond(), id1) + updatedEmbarassment(offers.get(i).getSecond(), id2))/2;
+            } else {
+                firstEmbarassment = minDistance(offers.get(i).getFirst());
+                secondEmbarassment = minDistance(offers.get(i).getSecond());
+            }
 
-            double firstEmbarassment = minDistance(offers.get(i).getFirst());
-            double secondEmbarassment = minDistance(offers.get(i).getSecond());
-
-            if(curMin1 > firstEmbarassment) {//&& min1 != playerCloseToOffer) {
+            if(curMin1 > firstEmbarassment) { //&& (this.no_txn < 3 || this.pair_offer == 1 || min1 != playerCloseToOffer)) {
                 curMin2 = curMin1;
                 curMin1 = firstEmbarassment;
                 min2 = min1;
@@ -293,14 +298,14 @@ public class Player extends exchange.sim.Player {
                 rank2 = rank1;
                 rank1 = 1;
                 c++;
-            } else if(curMin2 > firstEmbarassment) {//&& min2 != playerCloseToOffer) {
+            } else if(curMin2 > firstEmbarassment) { //&& (this.no_txn < 3 || this.pair_offer == 1 || min2 != playerCloseToOffer)) {
                 curMin2 = firstEmbarassment;
                 min2 = i;
                 rank2 = 1;
                 c++;
             }
 
-            if(curMin1 > secondEmbarassment) {//&& min1 != playerCloseToOffer) {
+            if(curMin1 > secondEmbarassment) { //&& (this.no_txn < 3 || this.pair_offer == 1 || min1 != playerCloseToOffer)) {
                 curMin2 = curMin1;
                 curMin1 = secondEmbarassment;
                 min2 = min1;
@@ -308,7 +313,7 @@ public class Player extends exchange.sim.Player {
                 rank2 = rank1;
                 rank1 = 2;
                 c++;
-            } else if(curMin2 > secondEmbarassment) {// && min2 != playerCloseToOffer) {
+            } else if(curMin2 > secondEmbarassment) { //&& (this.no_txn < 3 || this.pair_offer == 1 || min2 != playerCloseToOffer)) {
                 curMin2 = secondEmbarassment;
                 min2 = i;
                 rank2 = 2;
@@ -355,6 +360,7 @@ public class Player extends exchange.sim.Player {
 
 
         //a txn happens, set no_txn to 0
+        this.transactionsCount++;
         this.no_txn = 0;
         this.txn = true;
         int rank;
@@ -370,6 +376,8 @@ public class Player extends exchange.sim.Player {
             newSock = transaction.getFirstSock();
         }
 
+
+        excludedSocks.add(newSock);
         if (rank == 1) {
             socks[id1] = newSock;
         } else {
@@ -380,7 +388,7 @@ public class Player extends exchange.sim.Player {
     @Override
     public List<Sock> getSocks() {
         if(t == 0) {
-            pairSocks();
+            pairSocksBlossom();
         }
 
         return Arrays.asList(socks);
@@ -462,7 +470,7 @@ public class Player extends exchange.sim.Player {
 
     private double updatedEmbarassment(Sock newSock, int replaceIndex) {
         if(newSock == null) return -1;
-        int startIndex = Math.min(socks.length - 20, replaceIndex % 2 == 0 ? replaceIndex : replaceIndex - 1);
+        int startIndex = Math.min(socks.length - 200, replaceIndex % 2 == 0 ? replaceIndex : replaceIndex - 1);
         startIndex = Math.max(startIndex, 0);
         int offset = replaceIndex % 2 == 0 ? 0 : 1;
         Sock[] bottom = new Sock[socks.length - startIndex];

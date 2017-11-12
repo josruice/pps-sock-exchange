@@ -67,7 +67,7 @@ public class Player extends exchange.sim.Player {
             if(totalTurns < 1000) {
                 CONSIDERED = 200;
             } else {
-                CONSIDERED = 150;
+                CONSIDERED = 100;
             }
         }
 
